@@ -4,9 +4,9 @@ import os
 
 
 import websockets
-from desktop_notifier import DesktopNotifier
+from notifypy import Notify
 
-notifier = DesktopNotifier()
+notifier = Notify()
 
 if os.path.exists('config.json'):
     config = json.load(open('config.json', 'r'))
@@ -32,10 +32,14 @@ async def runner():
             )
             while True:
                 recv = json.loads(await ws.recv())
+                recv_body = recv['body']['body']
                 if recv['body']['type'] != 'readAllNotifications':
-                    match recv['body']['body']['type']:
+                    match recv_body['type']:
                         case 'reaction':
-                            await notifier.send(title=recv['body']['type'], message=recv['body']['body']['user']['name'])
+                            notifier.title = f"{recv_body['user']['name']}が{recv_body['reaction']}でリアクションしました"
+                            notifier.message = recv_body['note']['text']
+                            notifier.icon = recv_body['user']['avatarUrl']
+                            notifier.send()
                             print('reaction')
                         case 'readAllNotifications':
                             pass

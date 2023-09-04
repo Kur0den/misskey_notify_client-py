@@ -1,2 +1,2 @@
 pystray
-desktop-notifier
+notify-py
