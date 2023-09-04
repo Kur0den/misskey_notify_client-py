@@ -36,7 +36,7 @@ async def runner():
             )
             while True:
                 recv = json.loads(await ws.recv())
-                print(recv)
+                print(recv) # デバッグ用
                 recv_body = recv['body']['body']
                 if recv['body']['type'] == 'notification':
                     imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
@@ -54,7 +54,7 @@ async def runner():
                                 notifier.title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
                             else:
                                 emoji = recv_body['reaction']
-                                notifier.title = f"{recv_body['user']['name']}が{emoji[1:-1]}でリアクションしました"
+                                notifier.title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
                             notifier.message = recv_body['note']['text']
                             notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
                             notifier.send()
