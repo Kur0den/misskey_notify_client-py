@@ -2,13 +2,19 @@ import asyncio
 import json
 import os
 import shutil
+import threading
+from sys import exit
 
+from misskey import Misskey
+import pystray
 import re
 import requests
 import websockets
 from notifypy import Notify
+from PIL import Image
 
 notifier = Notify()
+
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
@@ -25,15 +31,17 @@ else:
     json.dump(config, open("config.json",'x'))
     ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 
+mk = Misskey(config['host'], i= config['i'])
 
 
 async def runner():
     try:
         async with websockets.connect(ws_url) as ws:  # type: ignore
-            print('ws connected')
+            print('ws connect')
             await ws.send(
                 json.dumps({"type": "connect", "body": {"channel": "main", "id": "1"}})
             )
+            print('ready')
             while True:
                 recv = json.loads(await ws.recv())
                 print(recv) # デバッグ用
@@ -75,10 +83,48 @@ async def runner():
                 else:
                     pass
 
+    except RuntimeWarning:
+        pass
+
     except Exception  as err:
         print(f'Error:\n{err}')
 
+def notify_read():
+    return_read = mk.notifications_mark_all_as_read()
+    notifier.title = f'Misskey-Nofity-Client'
+    notifier.icon = f'icon/icon.png'
+    if return_read:
+        notifier.message = '通知をすべて既読にしました'
+    else:
+        notifier.message = '通知の既読化に失敗しました'
+    notifier.send()
 
-print('client_ready')
-asyncio.get_event_loop().run_until_complete(runner())
+def stop():
+    print('未実装だよ')
+"""    try:
+        exit()
+    except SystemExit:
+        pass
+    icon.stop()
+    try:
+        task = asyncio.ensure_future(runner())
+        task.cancel()
+    except RuntimeWarning:
+        pass"""
 
+
+icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), menu=pystray.Menu(
+    pystray.MenuItem(
+        'すべて既読にする',
+        notify_read,
+        checked=None),
+    pystray.MenuItem(
+        '終了(未実装)',
+        stop,
+        checked=None)))
+
+print('client_startup...')
+icon_thread = threading.Thread(target=icon.run).start()
+print('icon starting...')
+
+asyncio.run(runner())
