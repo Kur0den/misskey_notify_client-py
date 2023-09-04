@@ -2,7 +2,11 @@ import asyncio
 import json
 import os
 
+
 import websockets
+from desktop_notifier import DesktopNotifier
+
+notifier = DesktopNotifier()
 
 if os.path.exists('config.json'):
     config = json.load(open('config.json', 'r'))
@@ -17,8 +21,10 @@ else:
     json.dump(config, open("config.json",'x'))
     ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 
+
+
 async def runner():
-    try:
+#    try:
         async with websockets.connect(ws_url) as ws:  # type: ignore
             print('ws connected')
             await ws.send(
@@ -27,10 +33,20 @@ async def runner():
             while True:
                 recv = json.loads(await ws.recv())
                 if recv['body']['type'] != 'readAllNotifications':
-                    print(recv)
-    except Exception  as err:
-        print(f'Error:\n{err}')
+                    match recv['body']['body']['type']:
+                        case 'reaction':
+                            await notifier.send(title=recv['body']['type'], message=recv['body']['body']['user']['name'])
+                            print('reaction')
+                        case 'readAllNotifications':
+                            pass
+                else:
+                    pass
+                print(recv)
+
+"""    except Exception  as err:
+        print(f'Error:\n{err}')"""
 
 
 print('client_ready')
 asyncio.get_event_loop().run_until_complete(runner())
+

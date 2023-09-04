@@ -169,3 +169,4 @@ cython_debug/
 config.json
 
 Thumbs.db
+.temp/
