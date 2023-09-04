@@ -167,3 +167,5 @@ cython_debug/
 .test/
 
 config.json
+
+Thumbs.db
