@@ -1,12 +1,16 @@
 import asyncio
 import json
 import os
+import shutil
 
-
+import re
+import requests
 import websockets
 from notifypy import Notify
 
 notifier = Notify()
+
+# ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
 if os.path.exists('config.json'):
     config = json.load(open('config.json', 'r'))
@@ -24,7 +28,7 @@ else:
 
 
 async def runner():
-#    try:
+    try:
         async with websockets.connect(ws_url) as ws:  # type: ignore
             print('ws connected')
             await ws.send(
@@ -32,23 +36,47 @@ async def runner():
             )
             while True:
                 recv = json.loads(await ws.recv())
+                print(recv)
                 recv_body = recv['body']['body']
-                if recv['body']['type'] != 'readAllNotifications':
+                if recv['body']['type'] == 'notification':
+                    imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
+                    if imgData.status_code == 200:
+                        try:
+                            with open(f'.data/{recv_body["user"]["id"]}.png', 'xb') as f:
+                                imgData.raw.decode_content = True
+                                shutil.copyfileobj(imgData.raw, f)
+                        except FileExistsError:
+                            pass
                     match recv_body['type']:
                         case 'reaction':
-                            notifier.title = f"{recv_body['user']['name']}が{recv_body['reaction']}でリアクションしました"
+                            if re.match(r'.+@', recv_body['reaction']) != None:
+                                emoji =  re.match(r'.+@', recv_body['reaction'])
+                                notifier.title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
+                            else:
+                                emoji = recv_body['reaction']
+                                notifier.title = f"{recv_body['user']['name']}が{emoji[1:-1]}でリアクションしました"
                             notifier.message = recv_body['note']['text']
-                            notifier.icon = recv_body['user']['avatarUrl']
+                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
                             notifier.send()
-                            print('reaction')
-                        case 'readAllNotifications':
-                            pass
+
+                        case 'reply':
+                            msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
+                            notifier.title = f"{recv_body['user']['name']}が返信しました"
+                            notifier.message = msg
+                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
+                            notifier.send()
+
+                        case 'mention':
+                            msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
+                            notifier.title = f"{recv_body['user']['name']}がメンションしました"
+                            notifier.message = msg
+                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
+                            notifier.send()
                 else:
                     pass
-                print(recv)
 
-"""    except Exception  as err:
-        print(f'Error:\n{err}')"""
+    except Exception  as err:
+        print(f'Error:\n{err}')
 
 
 print('client_ready')

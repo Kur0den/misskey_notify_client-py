@@ -170,3 +170,4 @@ config.json
 
 Thumbs.db
 .temp/
+.data/
