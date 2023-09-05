@@ -33,9 +33,11 @@ else:
 
 mk = Misskey(config['host'], i= config['i'])
 
+me = mk.i()
+
 
 async def runner():
-    try:
+    # try:
         async with websockets.connect(ws_url) as ws:  # type: ignore
             print('ws connect')
             await ws.send(
@@ -47,14 +49,18 @@ async def runner():
                 print(recv) # デバッグ用
                 recv_body = recv['body']['body']
                 if recv['body']['type'] == 'notification':
-                    imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
-                    if imgData.status_code == 200:
-                        try:
-                            with open(f'.data/{recv_body["user"]["id"]}.png', 'xb') as f:
-                                imgData.raw.decode_content = True
-                                shutil.copyfileobj(imgData.raw, f)
-                        except FileExistsError:
-                            pass
+                    try:
+                        imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
+                        if imgData.status_code == 200:
+                            try:
+                                with open(f'.data/{recv_body["user"]["id"]}.png', 'xb') as f:
+                                    imgData.raw.decode_content = True
+                                    shutil.copyfileobj(imgData.raw, f)
+                            except FileExistsError:
+                                pass
+                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
+                    except KeyError:
+                        notifier.icon = f'icon/icon.png'
                     match recv_body['type']:
                         case 'reaction':
                             if re.match(r'.+@', recv_body['reaction']) != None:
@@ -64,30 +70,72 @@ async def runner():
                                 emoji = recv_body['reaction']
                                 notifier.title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
                             notifier.message = recv_body['note']['text']
-                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
                             notifier.send()
 
                         case 'reply':
                             msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
                             notifier.title = f"{recv_body['user']['name']}が返信しました"
-                            notifier.message = msg
-                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
+                            notifier.message = f"{msg}\n------------\n{recv_body['note']['reply']['text']}"
                             notifier.send()
 
                         case 'mention':
                             msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
                             notifier.title = f"{recv_body['user']['name']}がメンションしました"
                             notifier.message = msg
-                            notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
+                            notifier.send()
+
+                        case 'renote':
+                            notifier.title = f"{recv_body['user']['name']}がリノートしました"
+                            notifier.message = recv_body['note']['renote']['text']
+                            notifier.send()
+
+                        case 'quote':
+                            notifier.title = f"{recv_body['user']['name']}が引用リノートしました"
+                            notifier.message = f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}'
+                            notifier.send()
+
+                        case 'pollEnded': #TODO:自分のときは名前表示省略
+                            imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
+                            if imgData.status_code == 200:
+                                try:
+                                    with open(f'.data/{recv_body["user"]["id"]}.png', 'xb') as f:
+                                        imgData.raw.decode_content = True
+                                        shutil.copyfileobj(imgData.raw, f)
+                                except FileExistsError:
+                                    pass
+                            votes = 0
+                            most_vote = None
+                            voted = None
+                            if recv_body['note']['user']['id'] == me['id']:
+                                notifier.title = f'自身が開始したアンケートの結果が出ました'
+                            else:
+                                notifier.title = f'{recv_body["note"]["user"]["name"]}のアンケートの結果が出ました'
+                            notifier.message = f'{recv_body["note"]["text"]}\n------------'
+                            for choice in recv_body['note']['poll']['choices']:
+                                if choice['isVoted']:
+                                    voted = choice
+                                else:
+                                    if choice['votes'] > votes:
+                                        most_vote = choice
+                                        votes = choice['votes']
+                            if most_vote is None:
+                                notifier.message += f"\n✅🏆:{voted['text']}|{voted['votes']}票"
+                            else:
+                                if voted is not None:
+                                    notifier.message += f"\n✅  :{voted['text']}|{voted['votes']}票"
+                                notifier.message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
+                            notifier.send()
+
+                        case 'follow':
+                            notifier.title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
+                            notifier.message = 'フョローされました'
                             notifier.send()
                 else:
                     pass
 
-    except RuntimeWarning:
-        pass
-
-    except Exception  as err:
+"""    except Exception  as err:
         print(f'Error:\n{err}')
+        icon.stop()"""
 
 def notify_read():
     return_read = mk.notifications_mark_all_as_read()
@@ -122,6 +170,7 @@ icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), me
         '終了(未実装)',
         stop,
         checked=None)))
+# TODO: どの通知受け取るか設定できるように
 
 print('client_startup...')
 icon_thread = threading.Thread(target=icon.run).start()
