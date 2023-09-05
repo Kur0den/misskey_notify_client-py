@@ -49,6 +49,7 @@ async def runner():
                 print(recv) # デバッグ用
                 recv_body = recv['body']['body']
                 if recv['body']['type'] == 'notification':
+
                     try:
                         imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
                         if imgData.status_code == 200:
@@ -61,6 +62,7 @@ async def runner():
                             notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
                     except KeyError:
                         notifier.icon = f'icon/icon.png'
+
                     match recv_body['type']:
                         case 'reaction':
                             if re.match(r'.+@', recv_body['reaction']) != None:
@@ -92,6 +94,21 @@ async def runner():
                         case 'quote':
                             notifier.title = f"{recv_body['user']['name']}が引用リノートしました"
                             notifier.message = f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}'
+                            notifier.send()
+
+                        case 'follow':
+                            notifier.title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
+                            notifier.message = 'ホョローされました'
+                            notifier.send()
+
+                        case 'followRequestAccepted':
+                            notifier.title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
+                            notifier.message = 'ホョローが承認されました'
+                            notifier.send()
+
+                        case 'receiveFollowRequest':
+                            notifier.title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
+                            notifier.message = 'ホョローがリクエストされました'
                             notifier.send()
 
                         case 'pollEnded': #TODO:自分のときは名前表示省略
@@ -126,9 +143,18 @@ async def runner():
                                 notifier.message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
                             notifier.send()
 
-                        case 'follow':
-                            notifier.title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
-                            notifier.message = 'フョローされました'
+                        case 'app':
+                            notifier.title = recv_body['header']
+                            notifier.message = recv_body['body']
+                            imgData = requests.get(recv_body['icon'], stream=True)
+                            if imgData.status_code == 200:
+                                try:
+                                    with open(f'.data/{recv_body["header"]}.png', 'xb') as f:
+                                        imgData.raw.decode_content = True
+                                        shutil.copyfileobj(imgData.raw, f)
+                                except FileExistsError:
+                                    pass
+                                notifier.icon = f'.data/{recv_body["header"]}.png'
                             notifier.send()
                 else:
                     pass
@@ -139,7 +165,7 @@ async def runner():
 
 def notify_read():
     return_read = mk.notifications_mark_all_as_read()
-    notifier.title = f'Misskey-Nofity-Client'
+    notifier.title = f'Misskey-Notify-Client'
     notifier.icon = f'icon/icon.png'
     if return_read:
         notifier.message = '通知をすべて既読にしました'
