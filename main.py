@@ -35,6 +35,7 @@ mk = Misskey(config['host'], i= config['i'])
 me = mk.i()
 
 
+
 async def runner():
     # try:
         async with websockets.connect(ws_url) as ws:  # type: ignore
@@ -49,7 +50,7 @@ async def runner():
                 recv_body = recv['body']['body']
                 if recv['body']['type'] == 'notification':
 
-                    try:
+                    """try:
                         imgData = requests.get(recv_body['user']['avatarUrl'], stream=True)
                         if imgData.status_code == 200:
                             try:
@@ -60,18 +61,18 @@ async def runner():
                                 pass
                             notifier.icon = f'.data/{recv_body["user"]["id"]}.png'
                     except KeyError:
-                        notifier.icon = f'icon/icon.png'
+                        notifier.icon = f'icon/icon.png'"""
 
                     match recv_body['type']:
                         case 'reaction':
                             if re.match(r'.+@', recv_body['reaction']) != None:
                                 emoji =  re.match(r'.+@', recv_body['reaction'])
-                                notifier.title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
+                                title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
                             else:
                                 emoji = recv_body['reaction']
-                                notifier.title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
-                            notifier.message = recv_body['note']['text']
-                            notifier.send()
+                                title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
+                            message = recv_body['note']['text']
+                            notify(title, message)
 
                         case 'reply':
                             msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
