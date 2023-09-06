@@ -6,15 +6,14 @@ import threading
 from sys import exit
 
 from misskey import Misskey
-import pystray
 import re
 import requests
 import websockets
-from notifypy import Notify
-from PIL import Image
+from termux.Notification import notify
 
-notifier = Notify()
-
+# メモ
+# icon : https://romannurik.github.io/AndroidAssetStudio/icons-notification.html#source.type=clipart&source.clipart=ac_unit&source.space.trim=1&source.space.pad=0&name=ic_stat_ac_unit
+# image-path : path?
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
@@ -163,43 +162,8 @@ async def runner():
         print(f'Error:\n{err}')
         icon.stop()"""
 
-def notify_read():
-    return_read = mk.notifications_mark_all_as_read()
-    notifier.title = f'Misskey-Notify-Client'
-    notifier.icon = f'icon/icon.png'
-    if return_read:
-        notifier.message = '通知をすべて既読にしました'
-    else:
-        notifier.message = '通知の既読化に失敗しました'
-    notifier.send()
 
-def stop():
-    print('未実装だよ')
-"""    try:
-        exit()
-    except SystemExit:
-        pass
-    icon.stop()
-    try:
-        task = asyncio.ensure_future(runner())
-        task.cancel()
-    except RuntimeWarning:
-        pass"""
-
-
-icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), menu=pystray.Menu(
-    pystray.MenuItem(
-        'すべて既読にする',
-        notify_read,
-        checked=None),
-    pystray.MenuItem(
-        '終了(未実装)',
-        stop,
-        checked=None)))
-# TODO: どの通知受け取るか設定できるように
 
 print('client_startup...')
-icon_thread = threading.Thread(target=icon.run).start()
-print('icon starting...')
 
 asyncio.run(runner())

@@ -1,5 +1,4 @@
-pystray
 notify-py
 requests
-pystray
 misskey.py
+termux-api
