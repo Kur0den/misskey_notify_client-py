@@ -3,3 +3,4 @@ notify-py
 requests
 pystray
 misskey.py
+websockets
