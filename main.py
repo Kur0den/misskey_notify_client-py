@@ -49,11 +49,11 @@ try:
     mk = Misskey(config['host'], i= config['i'])
 except requests.exceptions.ConnectionError:
     print('ドメインが違います\n再起動してもう一度入力しなおしてください')
-    os.remove('config.json')
+    #os.remove('config.json')
     exit()
 except mk_exceptions.MisskeyAuthorizeFailedException:
     print('APIキーが違います\n再起動してもう一度入力しなおしてください')
-    os.remove('config.json')
+    #os.remove('config.json')
     exit()
 me = mk.i()
 
