@@ -6,7 +6,7 @@ import shutil
 import threading
 from sys import exit
 
-import pystray
+#import pystray
 import requests
 import websockets
 from misskey import Misskey
@@ -31,6 +31,19 @@ else:
     print('初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください')
     json.dump(config, open("config.json",'x'))
     ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
+
+# 生存確認
+resp_code = requests.request('GET',f'https://{config["host"]}').status_code
+match resp_code:
+    case 404:
+        print('API接続ができませんでした\n - 利用しているインスタンスが正常に稼働しているか\n - 入力したドメインが正しいかどうか\nを確認してください')
+        exit()
+    case 410 | 500 | 502 | 503:
+        print('サーバーが正常に応答しませんでした\n利用しているインスタンスが正常に稼働しているかを確認してください\nStatusCode:', resp_code)
+        exit()
+    case 429:
+        print('レートリミットに達しました\nしばらくしてから再実行してください')
+        exit()
 
 try:
     mk = Misskey(config['host'], i= config['i'])
@@ -196,7 +209,7 @@ def stop():
         pass"""
 
 
-icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), menu=pystray.Menu(
+'''icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), menu=pystray.Menu(
     pystray.MenuItem(
         'すべて既読にする',
         notify_read,
@@ -204,11 +217,11 @@ icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), me
     pystray.MenuItem(
         '終了(未実装)',
         stop,
-        checked=None)))
+        checked=None)))'''
 # TODO: どの通知受け取るか設定できるように
 
 print('client_startup...')
-icon_thread = threading.Thread(target=icon.run).start()
+# icon_thread = threading.Thread(target=icon.run).start()
 print('icon starting...')
 
 asyncio.run(runner())
