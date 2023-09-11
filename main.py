@@ -1,15 +1,16 @@
 import asyncio
 import json
 import os
+import re
 import shutil
 import threading
 from sys import exit
 
-from misskey import Misskey
 import pystray
-import re
 import requests
 import websockets
+from misskey import Misskey
+from misskey import exceptions as mk_exceptions
 from notifypy import Notify
 from PIL import Image
 
@@ -31,8 +32,16 @@ else:
     json.dump(config, open("config.json",'x'))
     ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 
-mk = Misskey(config['host'], i= config['i'])
-
+try:
+    mk = Misskey(config['host'], i= config['i'])
+except requests.exceptions.ConnectionError:
+    print('ドメインが違います\n再起動してもう一度入力しなおしてください')
+    os.remove('config.json')
+    exit()
+except mk_exceptions.MisskeyAuthorizeFailedException:
+    print('APIキーが違います\n再起動してもう一度入力しなおしてください')
+    os.remove('config.json')
+    exit()
 me = mk.i()
 
 
