@@ -99,19 +99,26 @@ async def runner():
                         else:
                             emoji = recv_body['reaction']
                             title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
-                        await notify_def(title, recv_body['note']['text'], recv_body['user'])
+                        await notify_def(title,
+                                         recv_body['note']['text'],
+                                         recv_body['user'])
 
 
                     case 'reply':
                         msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
-                        title = f"{recv_body['user']['name']}が返信しました"
-                        message = f"{msg}\n------------\n{recv_body['note']['reply']['text']}"
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f"{recv_body['user']['name']}が返信しました",
+                                         f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
+                                         recv_body['user'])
 
                     case 'mention':
-                        title = f"{recv_body['user']['name']}がメンションしました"
-                        message = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f'{recv_body["user"]["name"]}がメンションしました',
+                                         re.sub(
+                                                r'(@.+@.+\..+\s)',
+                                                '',
+                                                recv_body['note']['text'],
+                                                len(re.findall(r'(@.+@.+\..+\s)',
+                                                               recv_body['note']['text'])))
+                                         , recv_body['user'])
 
                     case 'renote':
                         title = f"{recv_body['user']['name']}がリノートしました"
