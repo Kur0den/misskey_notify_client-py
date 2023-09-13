@@ -23,14 +23,13 @@ if os.path.exists('config.json'):
     config = json.load(open('config.json', 'r'))
     domain = config['host']
     i = config['i']
-    ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 else:
     config = {}
     config['host'] = input('ドメインを入力してください(例:example.com)->')
     config['i'] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
     print('初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください')
-    json.dump(config, open("config.json",'x'))
-    ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
+    json.dump(config, fp=open("config.json",'x'))
+ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 
 # 生存確認
 resp_code = requests.request('GET',f'https://{config["host"]}').status_code
@@ -121,29 +120,29 @@ async def runner():
                                          , recv_body['user'])
 
                     case 'renote':
-                        title = f"{recv_body['user']['name']}がリノートしました"
-                        message = recv_body['note']['renote']['text']
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f"{recv_body['user']['name']}がリノートしました",
+                                         recv_body['note']['renote']['text'],
+                                         recv_body['user'])
 
                     case 'quote':
-                        title = f"{recv_body['user']['name']}が引用リノートしました"
-                        message = f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}'
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f"{recv_body['user']['name']}が引用リノートしました",
+                                         f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
+                                         recv_body['user'])
 
                     case 'follow':
-                        title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
-                        message = 'ホョローされました'
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                         'ホョローされました',
+                                         recv_body['user'])
 
                     case 'followRequestAccepted':
-                        title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
-                        message = 'ホョローが承認されました'
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                         'ホョローが承認されました',
+                                         recv_body['user'])
 
                     case 'receiveFollowRequest':
-                        title = f"{recv_body['user']['name']}@{recv_body['user']['host']}"
-                        message = 'ホョローがリクエストされました'
-                        await notify_def(title, message, recv_body['user'])
+                        await notify_def(f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                         'ホョローがリクエストされました',
+                                         recv_body['user'])
 
                     case 'pollEnded':
                         img_data = requests.get(recv_body['user']['avatarUrl'], stream=True)
@@ -178,8 +177,6 @@ async def runner():
                         await notify_def(title, message, f'.data/{recv_body["header"]}.png')
 
                     case 'app':
-                        title = recv_body['header']
-                        message = recv_body['body']
                         img_data = requests.get(recv_body['icon'], stream=True)
                         if img_data.status_code == 200:
                             try:
@@ -188,7 +185,9 @@ async def runner():
                                     shutil.copyfileobj(img_data.raw, f)
                             except FileExistsError:
                                 pass
-                        await notify_def(title, message, f'.data/{recv_body["header"]}.png')
+                        await notify_def(recv_body['header'],
+                                         recv_body['body'],
+                                         f'.data/{recv_body["header"]}.png')
             else:
                 pass
 
