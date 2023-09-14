@@ -104,7 +104,14 @@ async def runner():
 
 
                     case 'reply':
-                        msg = re.sub(r'(@.+@.+\..+\s)', '', recv_body['note']['text'], len(re.findall(r'(@.+@.+\..+\s)', recv_body['note']['text'])))
+                        msg = re.sub(
+                                        pattern=r'(@.+@.+\..+\s)',
+                                        repl='',
+                                        string=recv_body['note']['text'],
+                                        count=len(
+                                            re.findall(
+                                                pattern=r'(@.+@.+\..+\s)',
+                                                string=recv_body['note']['text'])))
                         await notify_def(f"{recv_body['user']['name']}が返信しました",
                                          f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
                                          recv_body['user'])
@@ -135,9 +142,9 @@ async def runner():
                                          recv_body['user'])
 
                     case 'followRequestAccepted':
-                        await notify_def(f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                         'ホョローが承認されました',
-                                         recv_body['user'])
+                        await notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                         message='ホョローが承認されました',
+                                         icon=recv_body['user'])
 
                     case 'receiveFollowRequest':
                         await notify_def(f"{recv_body['user']['name']}@{recv_body['user']['host']}",
