@@ -1,2 +1,6 @@
 pystray
-desktop-notifier
+notify-py
+requests
+pystray
+misskey.py
+websockets
