@@ -6,7 +6,7 @@ import shutil
 import threading
 from sys import exit
 
-#import pystray
+import pystray
 import requests
 import websockets
 from misskey import Misskey
@@ -57,7 +57,7 @@ except mk_exceptions.MisskeyAuthorizeFailedException:
 me = mk.i()
 
 async def notify_def(title: str, message: str, icon:str | dict):
-    if type(icon) is list:
+    if type(icon) is dict:
         try:
             imgData = requests.get(icon['avatarUrl'], stream=True, timeout=10)
             if imgData.status_code == 200:
@@ -222,7 +222,7 @@ def stop():
         pass"""
 
 
-'''icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), menu=pystray.Menu(
+icon = pystray.Icon('Misskey-notify-client',icon=Image.open('icon/icon.png'), menu=pystray.Menu(
     pystray.MenuItem(
         'すべて既読にする',
         notify_read,
@@ -230,11 +230,11 @@ def stop():
     pystray.MenuItem(
         '終了(未実装)',
         stop,
-        checked=None)))'''
+        checked=None)))
 # TODO: どの通知受け取るか設定できるように
 
 print('client_startup...')
-# icon_thread = threading.Thread(target=icon.run).start()
+icon_thread = threading.Thread(target=icon.run).start()
 print('icon starting...')
 
 asyncio.run(runner())
