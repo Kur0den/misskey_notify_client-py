@@ -86,10 +86,8 @@ async def runner():
         while True:
             recv = json.loads(await ws.recv())
             print(recv) # デバッグ用
-            recv_body = recv['body']['body']
             if recv['body']['type'] == 'notification':
-
-
+                recv_body = recv['body']['body']
                 match recv_body['type']:
                     case 'reaction':
                         if re.match(r'.+@', recv_body['reaction']) != None:
