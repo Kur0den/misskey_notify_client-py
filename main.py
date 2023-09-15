@@ -47,11 +47,11 @@ match resp_code:
 try:
     mk = Misskey(config['host'], i= config['i'])
 except requests.exceptions.ConnectionError:
-    print('ドメインが違います\n再起動してもう一度入力しなおしてください')
+    print('ドメインが違います\nconfig.jsonを削除/編集してもう一度入力しなおしてください')
     #os.remove('config.json')
     exit()
 except mk_exceptions.MisskeyAuthorizeFailedException:
-    print('APIキーが違います\n再起動してもう一度入力しなおしてください')
+    print('APIキーが違います\nconfig.jsonを削除/編集して入力しなおしてください')
     #os.remove('config.json')
     exit()
 me = mk.i()
@@ -77,7 +77,7 @@ async def notify_def(title: str, message: str, icon:str | dict):
 
 
 async def runner():
-    async with websockets.connect(ws_url) as ws:  # type: ignore
+    async with websockets.connect(ws_url) as ws:
         print('ws connect')
         await ws.send(
             json.dumps({"type": "connect", "body": {"channel": "main", "id": "1"}})
