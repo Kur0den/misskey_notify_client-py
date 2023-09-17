@@ -55,23 +55,33 @@ except mk_exceptions.MisskeyAuthorizeFailedException:
 me = mk.i()
 
 
-async def notify_def(title: str, message: str, icon: str | dict) -> None:
-    if isinstance(icon, dict):
+async def notify_def(title: str, content: str, img: str | dict) -> None:
+    '''
+    ### 通知を送信するための関数
+    title: str
+        通知のタイトルに表示する文字
+    content: str
+        通知の内容
+    img: str | dict
+        通知に表示する画像のパス
+        dictはwebsocketのrecvそのまま突っ込む用
+    '''
+    if isinstance(img, dict):
         try:
-            img_Data = requests.get(icon['avatarUrl'], stream=True, timeout=10)
+            img_Data = requests.get(img['avatarUrl'], stream=True, timeout=10)
             if img_Data.status_code == 200:
                 try:
-                    with open(f'.data/{icon["id"]}.png', 'xb') as file:
+                    with open(f'.data/{img["id"]}.png', 'xb') as file:
                         img_Data.raw.decode_content = True
                         shutil.copyfileobj(img_Data.raw, file)
                 except FileExistsError:
                     pass
-                icon = f'.data/{icon["id"]}.png'
+                img = f'.data/{img["id"]}.png'
         except KeyError:
-            icon = 'icon/icon.png'
+            img = 'icon/icon.png'
     notifier.title = title
-    notifier.message = message
-    notifier.icon = icon
+    notifier.message = content
+    notifier.icon = img
     notifier.send()
 
 
@@ -96,8 +106,8 @@ async def runner():
                             emoji = recv_body['reaction']
                             title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
                         await notify_def(title=title,
-                                         message=recv_body['note']['text'],
-                                         icon=recv_body['user'])
+                                         content=recv_body['note']['text'],
+                                         img=recv_body['user'])
 
                     case 'reply':
                         msg = re.sub(
@@ -109,43 +119,43 @@ async def runner():
                                                 pattern=r'(@.+@.+\..+\s)',
                                                 string=recv_body['note']['text'])))
                         await notify_def(title=f"{recv_body['user']['name']}が返信しました",
-                                         message=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
-                                         icon=recv_body['user'])
+                                         content=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
+                                         img=recv_body['user'])
 
                     case 'mention':
                         await notify_def(title=f'{recv_body["user"]["name"]}がメンションしました',
-                                         message=re.sub(
+                                         content=re.sub(
                                                 pattern=r'(@.+@.+\..+\s)',
                                                 repl='',
                                                 string=recv_body['note']['text'],
                                                 count=len(re.findall(pattern=r'(@.+@.+\..+\s)',
                                                                      string=recv_body['note']['text']))),
-                                         icon=recv_body['user'])
+                                         img=recv_body['user'])
 
                     case 'renote':
                         await notify_def(title=f"{recv_body['user']['name']}がリノートしました",
-                                         message=recv_body['note']['renote']['text'],
-                                         icon=recv_body['user'])
+                                         content=recv_body['note']['renote']['text'],
+                                         img=recv_body['user'])
 
                     case 'quote':
                         await notify_def(title=f"{recv_body['user']['name']}が引用リノートしました",
-                                         message=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
-                                         icon=recv_body['user'])
+                                         content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
+                                         img=recv_body['user'])
 
                     case 'follow':
                         await notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                         message='ホョローされました',
-                                         icon=recv_body['user'])
+                                         content='ホョローされました',
+                                         img=recv_body['user'])
 
                     case 'followRequestAccepted':
                         await notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                         message='ホョローが承認されました',
-                                         icon=recv_body['user'])
+                                         content='ホョローが承認されました',
+                                         img=recv_body['user'])
 
                     case 'receiveFollowRequest':
                         await notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                         message='ホョローがリクエストされました',
-                                         icon=recv_body['user'])
+                                         content='ホョローがリクエストされました',
+                                         img=recv_body['user'])
 
                     case 'pollEnded':
                         img_data = requests.get(recv_body['user']['avatarUrl'], stream=True, timeout=config['timeout'])
@@ -177,7 +187,7 @@ async def runner():
                             if voted is not None:
                                 message += f"\n✅  :{voted['text']}|{voted['votes']}票"
                             message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
-                        await notify_def(title=title, message=message, icon=f'.data/{recv_body["header"]}.png')
+                        await notify_def(title=title, content=message, icon=f'.data/{recv_body["header"]}.png')
 
                     case 'app':
                         img_data = requests.get(recv_body['icon'], stream=True, timeout=config['timeout'])
@@ -188,9 +198,9 @@ async def runner():
                                     shutil.copyfileobj(img_data.raw, file)
                             except FileExistsError:
                                 pass
-                        await notify_def(recv_body['header'],
-                                         recv_body['body'],
-                                         f'.data/{recv_body["header"]}.png')
+                        await notify_def(title=recv_body['header'],
+                                         content=recv_body['body'],
+                                         img=f'.data/{recv_body["header"]}.png')
             else:
                 pass
 
@@ -202,7 +212,7 @@ def notify_read():
         message = '通知をすべて既読にしました'
     else:
         message = '通知の既読化に失敗しました'
-    asyncio.run(notify_def(title, message, 'icon/icon.png'))
+    asyncio.run(notify_def(title=title, content=message, img='icon/icon.png'))
 
 
 def stop():
