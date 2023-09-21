@@ -57,7 +57,7 @@ me = mk.i()
 
 class main:
     @staticmethod
-    async def notify_def(self, title: str, content: str, img: str | dict) -> None:
+    async def notify_def(title: str, content: str, img: str | dict) -> None:
         '''
         ### 通知を送信するための関数
         title: str
@@ -101,15 +101,15 @@ class main:
                     recv_body = recv['body']['body']
                     match recv_body['type']:
                         case 'reaction':
-                            if re.match(r'.+@', recv_body['reaction']) is None:
+                            if re.match(r'.+@', recv_body['reaction']) is not None:
                                 emoji = re.match(r'.+@', recv_body['reaction'])
                                 title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
                             else:
                                 emoji = recv_body['reaction']
                                 title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
                             await main.notify_def(title=title,
-                                            content=recv_body['note']['text'],
-                                            img=recv_body['user'])
+                                                  content=recv_body['note']['text'],
+                                                  img=recv_body['user'])
 
                         case 'reply':
                             msg = re.sub(
@@ -121,8 +121,8 @@ class main:
                                                     pattern=r'(@.+@.+\..+\s)',
                                                     string=recv_body['note']['text'])))
                             await main.notify_def(title=f"{recv_body['user']['name']}が返信しました",
-                                            content=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
-                                            img=recv_body['user'])
+                                                  content=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
+                                                  img=recv_body['user'])
 
                         case 'mention':
                             await main.notify_def(title=f'{recv_body["user"]["name"]}がメンションしました',
@@ -189,7 +189,7 @@ class main:
                                 if voted is not None:
                                     message += f"\n✅  :{voted['text']}|{voted['votes']}票"
                                 message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
-                            await main.notify_def(title=title, content=message, icon=f'.data/{recv_body["header"]}.png')
+                            await main.notify_def(title=title, content=message, img=f'.data/{recv_body["header"]}.png')
 
                         case 'app':
                             img_data = requests.get(recv_body['icon'], stream=True, timeout=config['timeout'])
@@ -206,6 +206,8 @@ class main:
                 else:
                     pass
 
+
+main = main()
 
 def notify_read():
     return_read = mk.notifications_mark_all_as_read()
