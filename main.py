@@ -56,6 +56,12 @@ me = mk.i()
 
 
 class main:
+    
+    def __init__(self) -> None:
+        # self.loop = asyncio.get_event_loop()
+        self.websocket_task = None
+        self.icon_task = None
+
     @staticmethod
     async def notify_def(title: str, content: str, img: str | dict) -> None:
         '''
@@ -86,8 +92,9 @@ class main:
         notifier.icon = img
         notifier.send()
 
-
-    async def ws(self):
+    @staticmethod
+    async def websocket_connect():
+        '''websocket接続するためのやつ'''
         async with websockets.connect(ws_url) as ws:
             print('ws connect')
             await ws.send(
@@ -206,6 +213,17 @@ class main:
                 else:
                     pass
 
+    async def runner(self, icon):
+        '''実行するやつ(?)'''
+        self.websocket_task = asyncio.create_task(main.websocket_connect())
+        self.icon_task = asyncio.create_task(asyncio.to_thread(icon.run))
+        
+        try:
+            await self.websocket_task
+            await self.icon_task
+        except asyncio.CancelledError:
+            print('task cancelled')
+
 
 main = main()
 
@@ -220,7 +238,8 @@ def notify_read():
 
 
 def stop():
-    print('未実装だよ')
+    main.websocket_task.cancel()
+    icon.stop()
 
 
 icon = pystray.Icon('Misskey-notify-client', icon=Image.open('icon/icon.png'), menu=pystray.Menu(
@@ -235,7 +254,7 @@ icon = pystray.Icon('Misskey-notify-client', icon=Image.open('icon/icon.png'), m
 # TODO: どの通知受け取るか設定できるように
 
 print('client_startup...')
-icon_thread = threading.Thread(target=icon.run).start()
+# icon_thread = threading.Thread(target=icon.run).start()
 print('icon starting...')
 
-asyncio.run(main.ws())
+asyncio.run(main.runner(icon))
