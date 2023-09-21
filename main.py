@@ -38,6 +38,7 @@ try:
     resp_code = requests.request('GET', f'https://{config["host"]}').status_code
 except requests.exceptions.ConnectionError:
     print('サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください')
+    exit()
 match resp_code:
     case 404:
         print('API接続ができませんでした\n - 利用しているインスタンスが正常に稼働しているか\n - 入力したドメインが正しいかどうか\nを確認してください')
