@@ -259,7 +259,7 @@ icon = pystray.Icon('Misskey-notify-client', icon=Image.open(app_icon), menu=pys
         checked=None),
     pystray.MenuItem(
         '終了',
-        stopper,
+        main.stopper,
         checked=None)))
 # TODO: どの通知受け取るか設定できるように
 
