@@ -16,6 +16,7 @@ from PIL import Image
 
 notifier = Notify()
 
+appname = 'Misskey-Notify-Client'
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
@@ -213,6 +214,10 @@ class main:
                 else:
                     pass
 
+    def stopper():
+        main.websocket_task.cancel()
+        icon.stop()
+
     async def runner(self, icon):
         '''実行するやつ(?)'''
         self.websocket_task = asyncio.create_task(main.websocket_connect())
@@ -225,21 +230,19 @@ class main:
             print('task cancelled')
 
 
+
 main = main()
 
 def notify_read():
     return_read = mk.notifications_mark_all_as_read()
-    title = 'Misskey-Notify-Client'
     if return_read:
         message = '通知をすべて既読にしました'
     else:
         message = '通知の既読化に失敗しました'
-    asyncio.run(main.notify_def(title=title, content=message, img='icon/icon.png'))
+    asyncio.run(main.notify_def(title=appname, content=message, img='icon/icon.png'))
 
 
-def stop():
-    main.websocket_task.cancel()
-    icon.stop()
+
 
 
 icon = pystray.Icon('Misskey-notify-client', icon=Image.open('icon/icon.png'), menu=pystray.Menu(
@@ -248,8 +251,8 @@ icon = pystray.Icon('Misskey-notify-client', icon=Image.open('icon/icon.png'), m
         notify_read,
         checked=None),
     pystray.MenuItem(
-        '終了(未実装)',
-        stop,
+        '終了',
+        stopper,
         checked=None)))
 # TODO: どの通知受け取るか設定できるように
 
