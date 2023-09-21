@@ -34,7 +34,10 @@ else:
 ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 
 # 生存確認
-resp_code = requests.request('GET', f'https://{config["host"]}').status_code
+try:
+    resp_code = requests.request('GET', f'https://{config["host"]}').status_code
+except requests.exceptions.ConnectionError:
+    print('サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください')
 match resp_code:
     case 404:
         print('API接続ができませんでした\n - 利用しているインスタンスが正常に稼働しているか\n - 入力したドメインが正しいかどうか\nを確認してください')
@@ -219,7 +222,8 @@ class main:
             main.notify_def(title=app_name, content='サーバーから切断されました\n5秒後に再接続します...', img=app_icon)
             await asyncio.sleep(5)
 
-    def stopper():
+    def stopper(self):
+        '''アプリ終了時に呼び出す関数'''
         main.websocket_task.cancel()
         icon.stop()
 
@@ -235,19 +239,17 @@ class main:
             print('task cancelled')
 
 
-
 main = main()
 
+
 def notify_read():
+    '''通知を全部既読にする際に呼び出す関数'''
     return_read = mk.notifications_mark_all_as_read()
     if return_read:
         message = '通知をすべて既読にしました'
     else:
         message = '通知の既読化に失敗しました'
     asyncio.run(main.notify_def(title=app_name, content=message, img=app_icon))
-
-
-
 
 
 icon = pystray.Icon('Misskey-notify-client', icon=Image.open(app_icon), menu=pystray.Menu(
