@@ -16,7 +16,8 @@ from PIL import Image
 
 notifier = Notify()
 
-appname = 'Misskey-Notify-Client'
+app_name = 'Misskey-Notify-Client'
+app_icon = 'icon/icon.png'
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
@@ -96,123 +97,127 @@ class main:
     @staticmethod
     async def websocket_connect():
         '''websocket接続するためのやつ'''
-        async with websockets.connect(ws_url) as ws:
-            print('ws connect')
-            await ws.send(
-                json.dumps({"type": "connect", "body": {"channel": "main", "id": "1"}})
-            )
-            print('ready')
-            while True:
-                recv = json.loads(await ws.recv())
-                print(recv)  # デバッグ用
-                if recv['body']['type'] == 'notification':
-                    recv_body = recv['body']['body']
-                    match recv_body['type']:
-                        case 'reaction':
-                            if re.match(r'.+@', recv_body['reaction']) is not None:
-                                emoji = re.match(r'.+@', recv_body['reaction'])
-                                title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
-                            else:
-                                emoji = recv_body['reaction']
-                                title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
-                            await main.notify_def(title=title,
-                                                  content=recv_body['note']['text'],
-                                                  img=recv_body['user'])
-
-                        case 'reply':
-                            msg = re.sub(
-                                            pattern=r'(@.+@.+\..+\s)',
-                                            repl='',
-                                            string=recv_body['note']['text'],
-                                            count=len(
-                                                re.findall(
-                                                    pattern=r'(@.+@.+\..+\s)',
-                                                    string=recv_body['note']['text'])))
-                            await main.notify_def(title=f"{recv_body['user']['name']}が返信しました",
-                                                  content=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
-                                                  img=recv_body['user'])
-
-                        case 'mention':
-                            await main.notify_def(title=f'{recv_body["user"]["name"]}がメンションしました',
-                                            content=re.sub(
-                                                    pattern=r'(@.+@.+\..+\s)',
-                                                    repl='',
-                                                    string=recv_body['note']['text'],
-                                                    count=len(re.findall(pattern=r'(@.+@.+\..+\s)',
-                                                                        string=recv_body['note']['text']))),
-                                            img=recv_body['user'])
-
-                        case 'renote':
-                            await main.notify_def(title=f"{recv_body['user']['name']}がリノートしました",
-                                            content=recv_body['note']['renote']['text'],
-                                            img=recv_body['user'])
-
-                        case 'quote':
-                            await main.notify_def(title=f"{recv_body['user']['name']}が引用リノートしました",
-                                            content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
-                                            img=recv_body['user'])
-
-                        case 'follow':
-                            await main.notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                            content='ホョローされました',
-                                            img=recv_body['user'])
-
-                        case 'followRequestAccepted':
-                            await main.notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                            content='ホョローが承認されました',
-                                            img=recv_body['user'])
-
-                        case 'receiveFollowRequest':
-                            await main.notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
-                                            content='ホョローがリクエストされました',
-                                            img=recv_body['user'])
-
-                        case 'pollEnded':
-                            img_data = requests.get(recv_body['user']['avatarUrl'], stream=True, timeout=config['timeout'])
-                            if img_data.status_code == 200:
-                                try:
-                                    with open(f'.data/{recv_body["user"]["id"]}.png', 'xb') as f:
-                                        img_data.raw.decode_content = True
-                                        shutil.copyfileobj(img_data.raw, f)
-                                except FileExistsError:
-                                    pass
-                            votes = 0
-                            most_vote = None
-                            voted = None
-                            if recv_body['note']['user']['id'] == me['id']:
-                                title = '自身が開始したアンケートの結果が出ました'
-                            else:
-                                title = f'{recv_body["note"]["user"]["name"]}のアンケートの結果が出ました'
-                            message = f'{recv_body["note"]["text"]}\n------------'
-                            for choice in recv_body['note']['poll']['choices']:
-                                if choice['isVoted']:
-                                    voted = choice
+        try:
+            async with websockets.connect(ws_url) as ws:
+                print('ws connect')
+                await ws.send(
+                    json.dumps({"type": "connect", "body": {"channel": "main", "id": "1"}})
+                )
+                print('ready')
+                while True:
+                    recv = json.loads(await ws.recv())
+                    print(recv)  # デバッグ用
+                    if recv['body']['type'] == 'notification':
+                        recv_body = recv['body']['body']
+                        match recv_body['type']:
+                            case 'reaction':
+                                if re.match(r'.+@', recv_body['reaction']) is not None:
+                                    emoji = re.match(r'.+@', recv_body['reaction'])
+                                    title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
                                 else:
-                                    if choice['votes'] > votes:
-                                        most_vote = choice
-                                        votes = choice['votes']
-                            if most_vote is None:
-                                message += f"\n✅🏆:{voted['text']}|{voted['votes']}票"
-                            else:
-                                if voted is not None:
-                                    message += f"\n✅  :{voted['text']}|{voted['votes']}票"
-                                message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
-                            await main.notify_def(title=title, content=message, img=f'.data/{recv_body["header"]}.png')
+                                    emoji = recv_body['reaction']
+                                    title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
+                                await main.notify_def(title=title,
+                                                    content=recv_body['note']['text'],
+                                                    img=recv_body['user'])
 
-                        case 'app':
-                            img_data = requests.get(recv_body['icon'], stream=True, timeout=config['timeout'])
-                            if img_data.status_code == 200:
-                                try:
-                                    with open(f'.data/{recv_body["header"]}.png', 'xb') as file:
-                                        img_data.raw.decode_content = True
-                                        shutil.copyfileobj(img_data.raw, file)
-                                except FileExistsError:
-                                    pass
-                            await main.notify_def(title=recv_body['header'],
-                                            content=recv_body['body'],
-                                            img=f'.data/{recv_body["header"]}.png')
-                else:
-                    pass
+                            case 'reply':
+                                msg = re.sub(
+                                                pattern=r'(@.+@.+\..+\s)',
+                                                repl='',
+                                                string=recv_body['note']['text'],
+                                                count=len(
+                                                    re.findall(
+                                                        pattern=r'(@.+@.+\..+\s)',
+                                                        string=recv_body['note']['text'])))
+                                await main.notify_def(title=f"{recv_body['user']['name']}が返信しました",
+                                                    content=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
+                                                    img=recv_body['user'])
+
+                            case 'mention':
+                                await main.notify_def(title=f'{recv_body["user"]["name"]}がメンションしました',
+                                                content=re.sub(
+                                                        pattern=r'(@.+@.+\..+\s)',
+                                                        repl='',
+                                                        string=recv_body['note']['text'],
+                                                        count=len(re.findall(pattern=r'(@.+@.+\..+\s)',
+                                                                            string=recv_body['note']['text']))),
+                                                img=recv_body['user'])
+
+                            case 'renote':
+                                await main.notify_def(title=f"{recv_body['user']['name']}がリノートしました",
+                                                content=recv_body['note']['renote']['text'],
+                                                img=recv_body['user'])
+
+                            case 'quote':
+                                await main.notify_def(title=f"{recv_body['user']['name']}が引用リノートしました",
+                                                content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
+                                                img=recv_body['user'])
+
+                            case 'follow':
+                                await main.notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                                content='ホョローされました',
+                                                img=recv_body['user'])
+
+                            case 'followRequestAccepted':
+                                await main.notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                                content='ホョローが承認されました',
+                                                img=recv_body['user'])
+
+                            case 'receiveFollowRequest':
+                                await main.notify_def(title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                                content='ホョローがリクエストされました',
+                                                img=recv_body['user'])
+
+                            case 'pollEnded':
+                                img_data = requests.get(recv_body['user']['avatarUrl'], stream=True, timeout=config['timeout'])
+                                if img_data.status_code == 200:
+                                    try:
+                                        with open(f'.data/{recv_body["user"]["id"]}.png', 'xb') as f:
+                                            img_data.raw.decode_content = True
+                                            shutil.copyfileobj(img_data.raw, f)
+                                    except FileExistsError:
+                                        pass
+                                votes = 0
+                                most_vote = None
+                                voted = None
+                                if recv_body['note']['user']['id'] == me['id']:
+                                    title = '自身が開始したアンケートの結果が出ました'
+                                else:
+                                    title = f'{recv_body["note"]["user"]["name"]}のアンケートの結果が出ました'
+                                message = f'{recv_body["note"]["text"]}\n------------'
+                                for choice in recv_body['note']['poll']['choices']:
+                                    if choice['isVoted']:
+                                        voted = choice
+                                    else:
+                                        if choice['votes'] > votes:
+                                            most_vote = choice
+                                            votes = choice['votes']
+                                if most_vote is None:
+                                    message += f"\n✅🏆:{voted['text']}|{voted['votes']}票"
+                                else:
+                                    if voted is not None:
+                                        message += f"\n✅  :{voted['text']}|{voted['votes']}票"
+                                    message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
+                                await main.notify_def(title=title, content=message, img=f'.data/{recv_body["header"]}.png')
+
+                            case 'app':
+                                img_data = requests.get(recv_body['icon'], stream=True, timeout=config['timeout'])
+                                if img_data.status_code == 200:
+                                    try:
+                                        with open(f'.data/{recv_body["header"]}.png', 'xb') as file:
+                                            img_data.raw.decode_content = True
+                                            shutil.copyfileobj(img_data.raw, file)
+                                    except FileExistsError:
+                                        pass
+                                await main.notify_def(title=recv_body['header'],
+                                                content=recv_body['body'],
+                                                img=f'.data/{recv_body["header"]}.png')
+                    else:
+                        pass
+        except websockets.exceptions.ConnectionClosed:
+            main.notify_def(title=app_name, content='サーバーから切断されました\n5秒後に再接続します...', img=app_icon)
+            await asyncio.sleep(5)
 
     def stopper():
         main.websocket_task.cancel()
@@ -239,13 +244,13 @@ def notify_read():
         message = '通知をすべて既読にしました'
     else:
         message = '通知の既読化に失敗しました'
-    asyncio.run(main.notify_def(title=appname, content=message, img='icon/icon.png'))
+    asyncio.run(main.notify_def(title=app_name, content=message, img=app_icon))
 
 
 
 
 
-icon = pystray.Icon('Misskey-notify-client', icon=Image.open('icon/icon.png'), menu=pystray.Menu(
+icon = pystray.Icon('Misskey-notify-client', icon=Image.open(app_icon), menu=pystray.Menu(
     pystray.MenuItem(
         'すべて既読にする',
         notify_read,
