@@ -216,8 +216,8 @@ class main:
                                         except FileExistsError:
                                             pass
                                     await main.notify_def(title=recv_body['header'],
-                                                    content=recv_body['body'],
-                                                    img=f'.data/{recv_body["header"]}.png')
+                                                        content=recv_body['body'],
+                                                        img=f'.data/{recv_body["header"]}.png')
                         else:
                             pass
             except websockets.exceptions.ConnectionClosedError:
