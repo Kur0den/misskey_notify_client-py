@@ -33,6 +33,8 @@ else:
     json.dump(config, fp=open(file="config.json", mode='x', encoding='UTF-8'))
 ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
 
+if not os.path.exists('.data'):  # フォルダが存在しない場合作成するように
+    os.mkdir('.data')
 # 生存確認
 try:
     resp_code = requests.request('GET', f'https://{config["host"]}').status_code
