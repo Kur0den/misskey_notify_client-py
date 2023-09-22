@@ -124,8 +124,8 @@ class main:
                                         emoji = recv_body['reaction']
                                         title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
                                     await main.notify_def(title=title,
-                                                        content=recv_body['note']['text'],
-                                                        img=recv_body['user'])
+                                                         content=recv_body['note']['text'],
+                                                         img=recv_body['user'])
 
                                 case 'reply':
                                     msg = re.sub(
