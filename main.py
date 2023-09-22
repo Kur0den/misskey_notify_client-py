@@ -3,7 +3,6 @@ import json
 import os
 import re
 import shutil
-import threading
 from sys import exit
 
 import pystray
