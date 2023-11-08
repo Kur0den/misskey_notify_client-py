@@ -20,13 +20,14 @@ app_icon = "icon/icon.png"
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
+
 if os.path.exists("config.json"):
     config = json.load(open(file="config.json", mode="r", encoding="UTF-8"))
     domain = config["host"]
     i = config["i"]
 else:
     config = {}
-    config["host"] = input("ドメインを入力してください(例:example.com)->")
+    config["host"] = input("ドメインを入力してください(例:example.com)-> https:// ")
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
