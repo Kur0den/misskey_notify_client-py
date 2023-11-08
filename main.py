@@ -3,6 +3,10 @@ import json
 import os
 import re
 import shutil
+from datetime import datetime
+from glob import glob
+from hashlib import sha256
+from io import BytesIO
 from sys import exit
 
 import pystray
@@ -97,24 +101,31 @@ class main:
         if isinstance(url, dict):  # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
             name: str = url["id"]  # 画像保存時の名前用にuidを格納
             url: str = url["avatarUrl"]  # 引数から画像URLを取得し再格納
-        if not os.path.exists(f"./data/{name}.png"):  # 画像が保存済みかどうかを確認
+        img_path = glob(f"./.data/{name}.*")
+        if img_path is not []:
+            img_path = img_path[0]
             try:
-                img_data = requests.get(
-                    url, stream=True, timeout=10
-                )  # 画像が存在しなかった場合画像データをダウンロードし保存
-                if img_data.status_code == 200:  # ステータスが200かどうかを確認
-                    with open(f".data/{name}.png", "xb") as file:  # {name}.pngファイルを新規作成
-                        img_data.raw.decode_content = True
-                        shutil.copyfileobj(img_data.raw, file)  # なんやかんや保存
-                        img_path = f".data/{name}.png"  # 返り値用の変数にパスを格納
-                else:
-                    # TODO: 画像取得が失敗した旨のログを出力する
-                    img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
+                with open(img_path, mode="rb") as f:
+                    img_binary = f.read()
+                img_data = requests.get(url, timeout=10)
             except requests.exceptions.ConnectionError:
-                # TODO: 画像取得時に接続失敗した旨のログを出力する
+                return "icon/icon.png"
+            if sha256(img_binary).hexdigest() == sha256(img_data.content).hexdigest():
+                return img_path  # ファイルが既に存在し、サーバー上のデータと同じ場合はその画像のパスを返す
+        try:
+            img_data = requests.get(url, timeout=10)  # 画像が存在しなかった場合画像データをダウンロード
+            if img_data.status_code == 200:  # ステータスが200かどうかを確認
+                with BytesIO(img_data.content) as buf:
+                    img = Image.open(buf)
+                    img_path = f"{name}.{img.format.lower()}"  # 返り値用の変数にパスを格納
+                    img.save(img_path)  # なんやかんや保存
+            else:
+                # TODO: 画像取得が失敗した旨のログを出力する
                 img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
-        else:
-            img_path = f".data/{name}.png"  # ファイルが既に存在する場合はその画像のパスを返り値用の変数に格納
+        except requests.exceptions.ConnectionError:
+            # TODO: 画像取得時に接続失敗した旨のログを出力する
+            img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
+
         return img_path  # みんな大好きreturn
 
     @staticmethod
