@@ -23,6 +23,8 @@ app_icon = "icon/icon.png"
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
+ws_reconnect_count = 0
+
 
 if os.path.exists("config.json"):  # config.jsonが存在するかどうかの確認
     config = json.load(
@@ -30,10 +32,12 @@ if os.path.exists("config.json"):  # config.jsonが存在するかどうかの�
     )  # 存在する場合openして中身を変数に格納
     domain = config["host"]
     i = config["i"]
+    ws_reconnect_limit = config["ws_reconnect_limit"]
 else:
     config = {}  # 存在しない場合インスタンスドメイン+トークンを聞きconfig.jsonを新規作成&保存
     config["host"] = input("ドメインを入力してください(例:example.com)-> https:// ")
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
+    config["ws_reconnect_limit"] = 10
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
 ws_url = f'wss://{config["host"]}/streaming?i={config["i"]}'
@@ -42,7 +46,9 @@ if not os.path.exists(".data"):  # 画像保存用の.dataフォルダが存在�
     os.mkdir(".data")
 # 生存確認
 try:
-    resp_code = requests.request("GET", f'https://{config["host"]}').status_code
+    resp_code = requests.request(
+        "GET", f'https://{config["host"]}', timeout=10
+    ).status_code
 except requests.exceptions.ConnectionError:
     print("サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください")
     exit()
@@ -80,7 +86,7 @@ class main:
         self.icon_task = None
 
     @staticmethod
-    async def save_image(url: str | dict, name: str | None = None) -> str:
+    def save_image(url: str | dict, name: str | None = None) -> str:
         """
         通知に使用する画像が存在するかどうか確認するための関数
         画像が存在した場合その画像のパスを返し
@@ -98,25 +104,25 @@ class main:
         """
 
         if isinstance(url, dict):  # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
-            name: str = url["id"]  # 画像保存時の名前用にuidを格納
-            url: str = url["avatarUrl"]  # 引数から画像URLを取得し再格納
+            name = url["id"]  # 画像保存時の名前用にuidを格納
+            url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
         img_path = glob(f"./.data/{name}.*")
         if img_path is not []:
             img_path = img_path[0]
             try:
                 with open(img_path, mode="rb") as f:
                     img_binary = f.read()
-                img_data = requests.get(url, timeout=10)
+                img_data = requests.get(url, timeout=10)  # type: ignore
             except requests.exceptions.ConnectionError:
                 return "icon/icon.png"
             if sha256(img_binary).hexdigest() == sha256(img_data.content).hexdigest():
                 return img_path  # ファイルが既に存在し、サーバー上のデータと同じ場合はその画像のパスを返す
         try:
-            img_data = requests.get(url, timeout=10)  # 画像が存在しなかった場合画像データをダウンロード
+            img_data = requests.get(url, timeout=10)  # type: ignore | 画像が存在しなかった場合画像データをダウンロード
             if img_data.status_code == 200:  # ステータスが200かどうかを確認
                 with BytesIO(img_data.content) as buf:
                     img = Image.open(buf)
-                    img_path = f"{name}.{img.format.lower()}"  # 返り値用の変数にパスを格納
+                    img_path = f"{name}.{img.format.lower()}"  # type: ignore | 返り値用の変数にパスを格納
                     img.save(img_path)  # なんやかんや保存
             else:
                 # TODO: 画像取得が失敗した旨のログを出力する
@@ -145,25 +151,28 @@ class main:
 
     @staticmethod
     async def websocket_connect():
-        """websocket接続するためのやつ"""
+        """
+        websocket接続するためのやつ
+        """
         while True:
             try:
-                async with websockets.connect(ws_url) as ws:
+                async with websockets.connect(ws_url) as ws:  # websocket接続
                     print("ws connect")
                     await ws.send(
                         json.dumps(
                             {"type": "connect", "body": {"channel": "main", "id": "1"}}
-                        )
+                        )  # チャンネル接続をする旨を送信
                     )
                     print("ready")
+                    ws_reconnect_count = 0
                     while True:
                         recv = json.loads(await ws.recv())
                         print(recv)  # デバッグ用
                         if recv["type"] == "channel":
                             if recv["body"]["type"] == "notification":
                                 recv_body = recv["body"]["body"]
-                                match recv_body["type"]:
-                                    case "reaction":
+                                match recv_body["type"]:  # 通知の種類によって動作を分ける
+                                    case "reaction":  # リアクション
                                         if (
                                             re.match(r".+@", recv_body["reaction"])
                                             is not None
@@ -178,7 +187,7 @@ class main:
                                         await main.notify_def(
                                             title=title,
                                             content=recv_body["note"]["text"],
-                                            img=recv_body["user"],
+                                            img=main.save_image(recv_body["user"]),
                                         )
 
                                     case "reply":
@@ -326,11 +335,20 @@ class main:
                             else:
                                 pass
             except websockets.exceptions.ConnectionClosedError:
+                if ws_reconnect_count == ws_reconnect_limit:
+                    print("websocket disconnected. reconnect limit reached.")
+                    await main.notify_def(
+                        title=app_name,
+                        content="再接続の回数が既定の回数を超えたため中断して終了します",
+                        img=app_icon,
+                    )
+                    return
                 print("websocket disconnected. reconecting...")
                 await main.notify_def(
                     title=app_name, content="サーバーから切断されました\n5秒後に再接続します...", img=app_icon
                 )
                 await asyncio.sleep(5)
+                ws_reconnect_count += 1
 
     def stopper(self):
         """アプリ終了時に呼び出す関数"""
