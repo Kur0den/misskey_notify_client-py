@@ -77,7 +77,7 @@ class main:
         self.icon_task = None
 
     @staticmethod
-    async def save_image(url: str|dict, app_name: str|None = None) -> str:
+    async def save_image(url: str | dict, name: str | None = None) -> str:
         """
         通知に使用する画像が存在するかどうか確認するための関数
         画像が存在した場合その画像のパスを返し
@@ -87,40 +87,45 @@ class main:
             url (str | dict): 確認する画像のURL
                                 ユーザーのアイコンの場合はrecv_body['user'](dict)をそのまま突っ込む
                                 アプリのアイコンの場合は画像のURL(str)をそのまま突っ込む
-            app_name (str | None, optional): アプリの画像を確認する場合にアプリ名を突っ込む
+            name (str | None, optional): アプリの画像を確認する場合にアプリ名を突っ込む
                                                 ユーザーのアイコン確認の際は無視して可
 
         Returns:
             image_path str: 画像のパス
         """
-        
-        if isinstance(url, dict):
-            
-        
-        # if isinstance(url, dict):  # img引数がStrかDictかどうかを判断
-        #         if not os.path.exists(f'./data/{img["id"]}.png'):  # 画像が保存済みかどうかを確認
-        #             img_Data = requests.get(img["avatarUrl"], stream=True, timeout=10)
-        #             if img_Data.status_code == 200:
-        #                 try:
-        #                     with open(f'.data/{img["id"]}.png', "xb") as file:
-        #                         img_Data.raw.decode_content = True
-        #                         shutil.copyfileobj(img_Data.raw, file)
-        #                 except FileExistsError:
-        #                     pass
-        #                 img = f'.data/{img["id"]}.png'
-        #         except KeyError:
-        #             img = "icon/icon.png"
+
+        if isinstance(url, dict):  # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
+            name: str = url["id"]  # 画像保存時の名前用にuidを格納
+            url: str = url["avatarUrl"]  # 引数から画像URLを取得し再格納
+        if not os.path.exists(f"./data/{name}.png"):  # 画像が保存済みかどうかを確認
+            try:
+                img_data = requests.get(
+                    url, stream=True, timeout=10
+                )  # 画像が存在しなかった場合画像データをダウンロードし保存
+                if img_data.status_code == 200:  # ステータスが200かどうかを確認
+                    with open(f".data/{name}.png", "xb") as file:  # {name}.pngファイルを新規作成
+                        img_data.raw.decode_content = True
+                        shutil.copyfileobj(img_data.raw, file)  # なんやかんや保存
+                        img_path = f".data/{name}.png"  # 返り値用の変数にパスを格納
+                else:
+                    # TODO: 画像取得が失敗した旨のログを出力する
+                    img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
+            except requests.exceptions.ConnectionError:
+                # TODO: 画像取得時に接続失敗した旨のログを出力する
+                img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
+        else:
+            img_path = f".data/{name}.png"  # ファイルが既に存在する場合はその画像のパスを返り値用の変数に格納
+        return img_path  # みんな大好きreturn
 
     @staticmethod
-    async def notify_def(title: str, content: str, img: str | dict) -> None:
+    async def notify_def(title: str, content: str, img: str) -> None:
         """
         通知を送信するための関数
 
         Args:
             title (str): 通知のタイトル
             content (str): 通知の内容
-            img (str | dict): 通知に表示する画像(ユーザーの画像を表示する場合は{user_id}.png指定したパスを、
-                                受信データをそのまま突っ込む場合はrecv_body['user']を突っ込む)
+            img (str): 通知に表示する画像のパス
         """
 
         notifier.title = title
