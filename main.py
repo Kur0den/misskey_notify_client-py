@@ -30,13 +30,13 @@ else:
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
-ws_url = f"wss://{config['host']}/streaming?i={config['i']}"
+ws_url = f'wss://{config["host"]}/streaming?i={config["i"]}'
 
 if not os.path.exists(".data"):  # フォルダが存在しない場合作成するように
     os.mkdir(".data")
 # 生存確認
 try:
-    resp_code = requests.request("GET", f"https://{config['host']}").status_code
+    resp_code = requests.request("GET", f'https://{config["host"]}').status_code
 except requests.exceptions.ConnectionError:
     print("サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください")
     exit()
@@ -128,10 +128,10 @@ class main:
                                         is not None
                                     ):
                                         emoji = re.match(r".+@", recv_body["reaction"])
-                                        title = f"{recv_body['user']['name']}が{emoji.group()[1:-1]}でリアクションしました"
+                                        title = f'{recv_body["user"]["name"]}が{emoji.group()[1:-1]}でリアクションしました'
                                     else:
                                         emoji = recv_body["reaction"]
-                                        title = f"{recv_body['user']['name']}が{emoji}でリアクションしました"
+                                        title = f'{recv_body["user"]["name"]}が{emoji}でリアクションしました'
                                     await main.notify_def(
                                         title=title,
                                         content=recv_body["note"]["text"],
@@ -151,8 +151,8 @@ class main:
                                         ),
                                     )
                                     await main.notify_def(
-                                        title=f"{recv_body['user']['name']}が返信しました",
-                                        content=f"{msg}\n------------\n{recv_body['note']['reply']['text']}",
+                                        title=f'{recv_body["user"]["name"]}が返信しました',
+                                        content=f'{msg}\n------------\n{recv_body["note"]["reply"]["text"]}',
                                         img=recv_body["user"],
                                     )
 
@@ -175,35 +175,35 @@ class main:
 
                                 case "renote":
                                     await main.notify_def(
-                                        title=f"{recv_body['user']['name']}がリノートしました",
+                                        title=f'{recv_body["user"]["name"]}がリノートしました',
                                         content=recv_body["note"]["renote"]["text"],
                                         img=recv_body["user"],
                                     )
 
                                 case "quote":
                                     await main.notify_def(
-                                        title=f"{recv_body['user']['name']}が引用リノートしました",
+                                        title=f'{recv_body["user"]["name"]}が引用リノートしました',
                                         content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
                                         img=recv_body["user"],
                                     )
 
                                 case "follow":
                                     await main.notify_def(
-                                        title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                        title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
                                         content="ホョローされました",
                                         img=recv_body["user"],
                                     )
 
                                 case "followRequestAccepted":
                                     await main.notify_def(
-                                        title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                        title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
                                         content="ホョローが承認されました",
                                         img=recv_body["user"],
                                     )
 
                                 case "receiveFollowRequest":
                                     await main.notify_def(
-                                        title=f"{recv_body['user']['name']}@{recv_body['user']['host']}",
+                                        title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
                                         content="ホョローがリクエストされました",
                                         img=recv_body["user"],
                                     )
@@ -243,12 +243,12 @@ class main:
                                                 votes = choice["votes"]
                                     if most_vote is None:
                                         message += (
-                                            f"\n✅🏆:{voted['text']}|{voted['votes']}票"
+                                            f'\n✅🏆:{voted["text"]}|{voted["votes"]}票'
                                         )
                                     else:
                                         if voted is not None:
-                                            message += f"\n✅  :{voted['text']}|{voted['votes']}票"
-                                        message += f"\n  🏆:{most_vote['text']}|{most_vote['votes']}票"
+                                            message += f'\n✅  :{voted["text"]}|{voted["votes"]}票'
+                                        message += f'\n  🏆:{most_vote["text"]}|{most_vote["votes"]}票'
                                     await main.notify_def(
                                         title=title,
                                         content=message,
