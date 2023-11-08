@@ -21,19 +21,21 @@ app_icon = "icon/icon.png"
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
 
-if os.path.exists("config.json"):
-    config = json.load(open(file="config.json", mode="r", encoding="UTF-8"))
+if os.path.exists("config.json"):  # config.jsonが存在するかどうかの確認
+    config = json.load(
+        open(file="config.json", mode="r", encoding="UTF-8")
+    )  # 存在する場合openして中身を変数に格納
     domain = config["host"]
     i = config["i"]
 else:
-    config = {}
+    config = {}  # 存在しない場合インスタンスドメイン+トークンを聞きconfig.jsonを新規作成&保存
     config["host"] = input("ドメインを入力してください(例:example.com)-> https:// ")
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
 ws_url = f'wss://{config["host"]}/streaming?i={config["i"]}'
 
-if not os.path.exists(".data"):  # フォルダが存在しない場合作成するように
+if not os.path.exists(".data"):  # 画像保存用の.dataフォルダが存在しない場合作成するように
     os.mkdir(".data")
 # 生存確認
 try:
@@ -75,30 +77,52 @@ class main:
         self.icon_task = None
 
     @staticmethod
+    async def save_image(url: str|dict, app_name: str|None = None) -> str:
+        """
+        通知に使用する画像が存在するかどうか確認するための関数
+        画像が存在した場合その画像のパスを返し
+        画像が存在しない場合その画像をダウンロードしてパスを返す
+
+        Args:
+            url (str | dict): 確認する画像のURL
+                                ユーザーのアイコンの場合はrecv_body['user'](dict)をそのまま突っ込む
+                                アプリのアイコンの場合は画像のURL(str)をそのまま突っ込む
+            app_name (str | None, optional): アプリの画像を確認する場合にアプリ名を突っ込む
+                                                ユーザーのアイコン確認の際は無視して可
+
+        Returns:
+            image_path str: 画像のパス
+        """
+        
+        if isinstance(url, dict):
+            
+        
+        # if isinstance(url, dict):  # img引数がStrかDictかどうかを判断
+        #         if not os.path.exists(f'./data/{img["id"]}.png'):  # 画像が保存済みかどうかを確認
+        #             img_Data = requests.get(img["avatarUrl"], stream=True, timeout=10)
+        #             if img_Data.status_code == 200:
+        #                 try:
+        #                     with open(f'.data/{img["id"]}.png', "xb") as file:
+        #                         img_Data.raw.decode_content = True
+        #                         shutil.copyfileobj(img_Data.raw, file)
+        #                 except FileExistsError:
+        #                     pass
+        #                 img = f'.data/{img["id"]}.png'
+        #         except KeyError:
+        #             img = "icon/icon.png"
+
+    @staticmethod
     async def notify_def(title: str, content: str, img: str | dict) -> None:
         """
-        ### 通知を送信するための関数
-        title: str
-            通知のタイトルに表示する文字
-        content: str
-            通知の内容
-        img: str | dict
-            通知に表示する画像のパス
-            dictはwebsocketのrecvそのまま突っ込む用
+        通知を送信するための関数
+
+        Args:
+            title (str): 通知のタイトル
+            content (str): 通知の内容
+            img (str | dict): 通知に表示する画像(ユーザーの画像を表示する場合は{user_id}.png指定したパスを、
+                                受信データをそのまま突っ込む場合はrecv_body['user']を突っ込む)
         """
-        if isinstance(img, dict):
-            try:
-                img_Data = requests.get(img["avatarUrl"], stream=True, timeout=10)
-                if img_Data.status_code == 200:
-                    try:
-                        with open(f'.data/{img["id"]}.png', "xb") as file:
-                            img_Data.raw.decode_content = True
-                            shutil.copyfileobj(img_Data.raw, file)
-                    except FileExistsError:
-                        pass
-                    img = f'.data/{img["id"]}.png'
-            except KeyError:
-                img = "icon/icon.png"
+
         notifier.title = title
         notifier.message = content
         notifier.icon = img
