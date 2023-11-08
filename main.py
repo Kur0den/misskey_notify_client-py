@@ -2,7 +2,6 @@ import asyncio
 import json
 import os
 import re
-import shutil
 from glob import glob
 from hashlib import sha256
 from io import BytesIO
@@ -86,7 +85,7 @@ class main:
         self.icon_task = None
 
     @staticmethod
-    def save_image(url: str | dict, name: str | None = None) -> str:
+    def get_image(url: str | dict, name: str | None = None) -> str:
         """
         通知に使用する画像が存在するかどうか確認するための関数
         画像が存在した場合その画像のパスを返し
@@ -187,10 +186,10 @@ class main:
                                         await main.notify_def(
                                             title=title,
                                             content=recv_body["note"]["text"],
-                                            img=main.save_image(recv_body["user"]),
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "reply":
+                                    case "reply":  # リプライ
                                         msg = re.sub(
                                             pattern=r"(@.+@.+\..+\s)",
                                             repl="",
@@ -205,10 +204,10 @@ class main:
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}が返信しました',
                                             content=f'{msg}\n------------\n{recv_body["note"]["reply"]["text"]}',
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "mention":
+                                    case "mention":  # メンション
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}がメンションしました',
                                             content=re.sub(
@@ -224,60 +223,45 @@ class main:
                                                     )
                                                 ),
                                             ),
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "renote":
+                                    case "renote":  # リノート
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}がリノートしました',
                                             content=recv_body["note"]["renote"]["text"],
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "quote":
+                                    case "quote":  # 引用リノート
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}が引用リノートしました',
                                             content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "follow":
+                                    case "follow":  # フォロー
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
                                             content="ホョローされました",
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "followRequestAccepted":
+                                    case "followRequestAccepted":  # フォロー承認
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
                                             content="ホョローが承認されました",
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "receiveFollowRequest":
+                                    case "receiveFollowRequest":  # フォローリクエスト
                                         await main.notify_def(
                                             title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
                                             content="ホョローがリクエストされました",
-                                            img=recv_body["user"],
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "pollEnded":
-                                        img_data = requests.get(
-                                            recv_body["user"]["avatarUrl"],
-                                            stream=True,
-                                            timeout=config["timeout"],
-                                        )
-                                        if img_data.status_code == 200:
-                                            try:
-                                                with open(
-                                                    f'.data/{recv_body["user"]["id"]}.png',
-                                                    "xb",
-                                                ) as f:
-                                                    img_data.raw.decode_content = True
-                                                    shutil.copyfileobj(img_data.raw, f)
-                                            except FileExistsError:
-                                                pass
+                                    case "pollEnded":  # 投票終了
                                         votes = 0
                                         most_vote = None
                                         voted = None
@@ -306,31 +290,16 @@ class main:
                                         await main.notify_def(
                                             title=title,
                                             content=message,
-                                            img=f'.data/{recv_body["header"]}.png',
+                                            img=main.get_image(recv_body["user"]),
                                         )
 
-                                    case "app":
-                                        img_data = requests.get(
-                                            recv_body["icon"],
-                                            stream=True,
-                                            timeout=config["timeout"],
-                                        )
-                                        if img_data.status_code == 200:
-                                            try:
-                                                with open(
-                                                    f'.data/{recv_body["header"]}.png',
-                                                    "xb",
-                                                ) as file:
-                                                    img_data.raw.decode_content = True
-                                                    shutil.copyfileobj(
-                                                        img_data.raw, file
-                                                    )
-                                            except FileExistsError:
-                                                pass
+                                    case "app":  # アプリ通知
                                         await main.notify_def(
                                             title=recv_body["header"],
                                             content=recv_body["body"],
-                                            img=f'.data/{recv_body["header"]}.png',
+                                            img=main.get_image(
+                                                recv_body["icon"], recv_body["header"]
+                                            ),
                                         )
                             else:
                                 pass
