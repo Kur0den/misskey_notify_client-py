@@ -29,13 +29,11 @@ if os.path.exists("config.json"):  # config.jsonが存在するかどうかの�
     config = json.load(
         open(file="config.json", mode="r", encoding="UTF-8")
     )  # 存在する場合openして中身を変数に格納
-    domain = config["host"]
-    i = config["i"]
-    ws_reconnect_limit = config["ws_reconnect_limit"]
 else:
     config = {}  # 存在しない場合インスタンスドメイン+トークンを聞きconfig.jsonを新規作成&保存
     config["host"] = input("ドメインを入力してください(例:example.com)-> https:// ")
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
+    config["request_timeout"] = 10
     config["ws_reconnect_limit"] = 10
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
@@ -46,7 +44,7 @@ if not os.path.exists(".data"):  # 画像保存用の.dataフォルダが存在�
 # 生存確認
 try:
     resp_code = requests.request(
-        "GET", f'https://{config["host"]}', timeout=10
+        "GET", f'https://{config["host"]}', timeout=config["timeout"]
     ).status_code
 except requests.exceptions.ConnectionError:
     print("サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください")
@@ -102,6 +100,8 @@ class main:
             image_path str: 画像のパス
         """
 
+        print("get_img")
+
         if isinstance(url, dict):  # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
             name = url["id"]  # 画像保存時の名前用にuidを格納
             url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
@@ -111,17 +111,17 @@ class main:
             try:
                 with open(img_path, mode="rb") as f:
                     img_binary = f.read()
-                img_data = requests.get(url, timeout=10)  # type: ignore
+                img_data = requests.get(url, timeout=config["timeout"])  # type: ignore
             except requests.exceptions.ConnectionError:
                 return "icon/icon.png"
             if sha256(img_binary).hexdigest() == sha256(img_data.content).hexdigest():
                 return img_path  # ファイルが既に存在し、サーバー上のデータと同じ場合はその画像のパスを返す
         try:
-            img_data = requests.get(url, timeout=10)  # type: ignore | 画像が存在しなかった場合画像データをダウンロード
+            img_data = requests.get(url, timeout=config["timeout"])  # type: ignore | 画像が存在しなかった場合画像データをダウンロード
             if img_data.status_code == 200:  # ステータスが200かどうかを確認
                 with BytesIO(img_data.content) as buf:
                     img = Image.open(buf)
-                    img_path = f"{name}.{img.format.lower()}"  # type: ignore | 返り値用の変数にパスを格納
+                    img_path = f".data/{name}.{img.format.lower()}"  # type: ignore | 返り値用の変数にパスを格納
                     img.save(img_path)  # なんやかんや保存
             else:
                 # TODO: 画像取得が失敗した旨のログを出力する
@@ -143,6 +143,7 @@ class main:
             img (str): 通知に表示する画像のパス
         """
 
+        print("notify send")
         notifier.title = title
         notifier.message = content
         notifier.icon = img
@@ -304,7 +305,7 @@ class main:
                             else:
                                 pass
             except websockets.exceptions.ConnectionClosedError:
-                if ws_reconnect_count == ws_reconnect_limit:
+                if ws_reconnect_count == config["ws_reconnect_limit"]:
                     print("websocket disconnected. reconnect limit reached.")
                     await main.notify_def(
                         title=app_name,
