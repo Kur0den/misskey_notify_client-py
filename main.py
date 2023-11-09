@@ -106,7 +106,7 @@ class main:
             name = url["id"]  # 画像保存時の名前用にuidを格納
             url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
         img_path = glob(f"./.data/{name}.*")
-        if img_path is not []:
+        if len(img_path) != 0:
             img_path = img_path[0]
             try:
                 with open(img_path, mode="rb") as f:
@@ -115,6 +115,7 @@ class main:
             except requests.exceptions.ConnectionError:
                 return "icon/icon.png"
             if sha256(img_binary).hexdigest() == sha256(img_data.content).hexdigest():
+                print("hash_return")
                 return img_path  # ファイルが既に存在し、サーバー上のデータと同じ場合はその画像のパスを返す
         try:
             img_data = requests.get(url, timeout=config["timeout"])  # type: ignore | 画像が存在しなかった場合画像データをダウンロード
