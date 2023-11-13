@@ -6,6 +6,7 @@ from glob import glob
 from hashlib import sha256
 from io import BytesIO
 from sys import exit
+import urllib.parse as urllib
 
 import pystray
 import requests
@@ -106,6 +107,9 @@ class main:
             name = url["id"]  # 画像保存時の名前用にuidを格納
             url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
         img_path = glob(f"./.data/{name}.*")
+        query_url = urllib.parse_qs(urllib.urlparse(url).query)
+        if "url" in query_url:
+            url = urllib.unquote(query_url["url"][0])
         if len(img_path) != 0:
             img_path = img_path[0]
             try:
