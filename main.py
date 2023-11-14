@@ -6,7 +6,6 @@ from glob import glob
 from hashlib import sha256
 from io import BytesIO
 from sys import exit
-import urllib.parse as urllib
 
 import pystray
 import requests
@@ -25,8 +24,8 @@ app_icon = "icon/icon.png"
 
 ws_reconnect_count = 0
 
-
-if os.path.exists("config.json"):  # config.jsonが存在するかどうかの確認
+# ./config.jsonが存在するかどうかの確認
+if os.path.exists("config.json"):
     config = json.load(
         open(file="config.json", mode="r", encoding="UTF-8")
     )  # 存在する場合openして中身を変数に格納
@@ -40,8 +39,15 @@ else:
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
 ws_url = f'wss://{config["host"]}/streaming?i={config["i"]}'
 
-if not os.path.exists(".data"):  # 画像保存用の.dataフォルダが存在しない場合作成するように
+# 画像保存用の.dataフォルダが存在しない場合作成するように
+if not os.path.exists(".data"):
     os.mkdir(".data")
+
+# /./data/hash.jsonが存在するかどうかの確認
+if not os.path.exists(".data/hash.json"):
+    open(file=".data/hash.json", mode="x", encoding="UTF-8").write("{}")
+
+
 # 生存確認
 try:
     resp_code = requests.request(
@@ -103,31 +109,33 @@ class main:
 
         print("get_img")
 
-        if isinstance(url, dict):  # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
+        # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
+        if isinstance(url, dict):
             name = url["id"]  # 画像保存時の名前用にuidを格納
             url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
         img_path = glob(f"./.data/{name}.*")
-        query_url = urllib.parse_qs(urllib.urlparse(url).query)
-        if "url" in query_url:
-            url = urllib.unquote(query_url["url"][0])
+        try:
+            img_data = requests.get(url, timeout=config["timeout"])  # type: ignore
+            hash_json = json.load(open(file=".data/hash.json", mode="r"))
+        except requests.exceptions.ConnectionError:
+            return "icon/icon.png"
         if len(img_path) != 0:
             img_path = img_path[0]
-            try:
-                with open(img_path, mode="rb") as f:
-                    img_binary = f.read()
-                img_data = requests.get(url, timeout=config["timeout"])  # type: ignore
-            except requests.exceptions.ConnectionError:
-                return "icon/icon.png"
-            if sha256(img_binary).hexdigest() == sha256(img_data.content).hexdigest():
-                print("hash_return")
-                return img_path  # ファイルが既に存在し、サーバー上のデータと同じ場合はその画像のパスを返す
+            # ハッシュを格納しているjsonファイルをロード
+            if name in hash_json:
+                if hash_json[name] == sha256(img_data.content).hexdigest():
+                    print("hash_return")
+                    return img_path
+
         try:
-            img_data = requests.get(url, timeout=config["timeout"])  # type: ignore | 画像が存在しなかった場合画像データをダウンロード
             if img_data.status_code == 200:  # ステータスが200かどうかを確認
                 with BytesIO(img_data.content) as buf:
                     img = Image.open(buf)
                     img_path = f".data/{name}.{img.format.lower()}"  # type: ignore | 返り値用の変数にパスを格納
                     img.save(img_path)  # なんやかんや保存
+
+                hash_json[name] = sha256(img_data.content).hexdigest()
+                json.dump(hash_json, open(file=".data/hash.json", mode="w"))
             else:
                 # TODO: 画像取得が失敗した旨のログを出力する
                 img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
@@ -146,6 +154,9 @@ class main:
             title (str): 通知のタイトル
             content (str): 通知の内容
             img (str): 通知に表示する画像のパス
+
+        Returns:
+            None
         """
 
         print("notify send")
@@ -185,10 +196,10 @@ class main:
                                             emoji = re.match(
                                                 r".+@", recv_body["reaction"]
                                             )
-                                            title = f'{recv_body["user"]["name"]}が{emoji.group()[1:-1]}でリアクションしました'
+                                            title = f"{recv_body["user"]["name"]}が{emoji.group()[1:-1]}でリアクションしました"
                                         else:
                                             emoji = recv_body["reaction"]
-                                            title = f'{recv_body["user"]["name"]}が{emoji}でリアクションしました'
+                                            title = f"{recv_body["user"]["name"]}が{emoji}でリアクションしました"
                                         await main.notify_def(
                                             title=title,
                                             content=recv_body["note"]["text"],
