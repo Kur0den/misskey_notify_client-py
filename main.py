@@ -187,6 +187,12 @@ class main:
                         if recv["type"] == "channel":
                             if recv["body"]["type"] == "notification":
                                 recv_body = recv["body"]["body"]
+                                if recv_body.get("user") is not None:
+                                    name = (
+                                        recv_body["user"]["name"]
+                                        if recv_body["user"]["name"] is not None
+                                        else recv_body["user"]["username"]
+                                    )
                                 match recv_body["type"]:  # 通知の種類によって動作を分ける
                                     case "reaction":  # リアクション
                                         if (
@@ -196,10 +202,10 @@ class main:
                                             emoji = re.match(
                                                 r".+@", recv_body["reaction"]
                                             )
-                                            title = f"{recv_body["user"]["name"]}が{emoji.group()[1:-1]}でリアクションしました"
+                                            title = f"{name}が{emoji.group()[1:-1]}でリアクションしました"
                                         else:
                                             emoji = recv_body["reaction"]
-                                            title = f"{recv_body["user"]["name"]}が{emoji}でリアクションしました"
+                                            title = f"{name}が{emoji}でリアクションしました"
                                         await main.notify_def(
                                             title=title,
                                             content=recv_body["note"]["text"],
@@ -219,14 +225,14 @@ class main:
                                             ),
                                         )
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}が返信しました',
+                                            title=f"{name}が返信しました",
                                             content=f'{msg}\n------------\n{recv_body["note"]["reply"]["text"]}',
                                             img=main.get_image(recv_body["user"]),
                                         )
 
                                     case "mention":  # メンション
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}がメンションしました',
+                                            title=f"{name}がメンションしました",
                                             content=re.sub(
                                                 pattern=r"(@.+@.+\..+\s)",
                                                 repl="",
@@ -245,35 +251,35 @@ class main:
 
                                     case "renote":  # リノート
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}がリノートしました',
+                                            title=f"{name}がリノートしました",
                                             content=recv_body["note"]["renote"]["text"],
                                             img=main.get_image(recv_body["user"]),
                                         )
 
                                     case "quote":  # 引用リノート
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}が引用リノートしました',
+                                            title=f"{name}が引用リノートしました",
                                             content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
                                             img=main.get_image(recv_body["user"]),
                                         )
 
                                     case "follow":  # フォロー
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
+                                            title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローされました",
                                             img=main.get_image(recv_body["user"]),
                                         )
 
                                     case "followRequestAccepted":  # フォロー承認
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
+                                            title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローが承認されました",
                                             img=main.get_image(recv_body["user"]),
                                         )
 
                                     case "receiveFollowRequest":  # フォローリクエスト
                                         await main.notify_def(
-                                            title=f'{recv_body["user"]["name"]}@{recv_body["user"]["host"]}',
+                                            title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローがリクエストされました",
                                             img=main.get_image(recv_body["user"]),
                                         )
