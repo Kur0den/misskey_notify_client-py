@@ -149,10 +149,11 @@ class main:
             image_path str: 画像のパス
         """
 
-        print("get_img")
+        log_img.info("get_image called")
 
         # 引数urlがdictかどうか(指定されているのがユーザーのアイコンなのか)を判断
         if isinstance(url, dict):
+            log_img.debug("url is dict")
             name = url["id"]  # 画像保存時の名前用にuidを格納
             url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
         img_path = glob(f"./.data/{name}.*")
@@ -160,13 +161,14 @@ class main:
             img_data = requests.get(url, timeout=config["request_timeout"])  # type: ignore
             hash_json = json.load(open(file=".data/hash.json", mode="r"))
         except requests.exceptions.ConnectionError:
+            log_img.warning("request failed")
             return "icon/icon.png"
         if len(img_path) != 0:
             img_path = img_path[0]
             # ハッシュを格納しているjsonファイルをロード
             if name in hash_json:
                 if hash_json[name] == sha256(img_data.content).hexdigest():
-                    print("hash_return")
+                    log_img.info("Connection error: No image downloaded")
                     return img_path
 
         try:
@@ -175,16 +177,19 @@ class main:
                     img = Image.open(buf)
                     img_path = f".data/{name}.{img.format.lower()}"  # type: ignore | 返り値用の変数にパスを格納
                     img.save(img_path)  # なんやかんや保存
+                    log_img.info("Image saved")
 
                 hash_json[name] = sha256(img_data.content).hexdigest()
                 json.dump(hash_json, open(file=".data/hash.json", mode="w"))
+                log_img.info("Hash saved")
             else:
-                # TODO: 画像取得が失敗した旨のログを出力する
+                log_img.info("StatusCode error: No image downloaded")
                 img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
         except requests.exceptions.ConnectionError:
-            # TODO: 画像取得時に接続失敗した旨のログを出力する
+            log_img.info("Connection error: No image downloaded")
             img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
 
+        log_img.info("return")
         return img_path  # みんな大好きreturn
 
     @staticmethod
@@ -222,11 +227,14 @@ class main:
                             {"type": "connect", "body": {"channel": "main", "id": "1"}}
                         )  # チャンネル接続をする旨を送信
                     )
+                    log_main.info("Send channel connection payload")
                     print("ready")
+                    log_main.info("ready")
                     ws_reconnect_count = 0
                     while True:
                         recv = json.loads(await ws.recv())
-                        print(recv)  # デバッグ用
+                        log_main.info("payload received")
+                        log_main.debug(recv)  # デバッグ用
                         if recv["type"] == "channel":
                             if recv["body"]["type"] == "notification":
                                 recv_body = recv["body"]["body"]
