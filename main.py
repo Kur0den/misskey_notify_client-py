@@ -81,7 +81,7 @@ if not os.path.exists(".data/hash.json"):
 log_main.info("Connection check")
 try:
     resp_code = requests.request(
-        "GET", f'https://{config["host"]}', timeout=config["timeout"]
+        "GET", f'https://{config["host"]}', timeout=config["request_timeout"]
     ).status_code
     log_main.info("Connection check success")
 except requests.exceptions.ConnectionError:
@@ -157,7 +157,7 @@ class main:
             url = url["avatarUrl"]  # 引数から画像URLを取得し再格納
         img_path = glob(f"./.data/{name}.*")
         try:
-            img_data = requests.get(url, timeout=config["timeout"])  # type: ignore
+            img_data = requests.get(url, timeout=config["request_timeout"])  # type: ignore
             hash_json = json.load(open(file=".data/hash.json", mode="r"))
         except requests.exceptions.ConnectionError:
             return "icon/icon.png"
