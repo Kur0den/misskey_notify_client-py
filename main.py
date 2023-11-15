@@ -40,7 +40,7 @@ ws_reconnect_count = 0
 # ./config.jsonが存在するかどうかの確認
 if os.path.exists("config.json"):
     config = json.load(
-        open(file="config.json", mode="w", encoding="UTF-8")
+        open(file="config.json", mode="r", encoding="UTF-8")
     )  # 存在する場合openして中身を変数に格納
     match config["log_level"]:
         case "DEBUG":
