@@ -6,6 +6,7 @@ from glob import glob
 from hashlib import sha256
 from io import BytesIO
 from sys import exit
+import logging
 
 import pystray
 import requests
@@ -22,6 +23,18 @@ app_icon = "icon/icon.png"
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
+# logの設定
+logging.basicConfig(
+    format="%(asctime)s %(name)s - %(levelname)s: %(message)s",  # 出力のフォーマット
+    datefmt="[%Y-%m-%dT%H:%M:%S%z]",  # 時間(asctime)のフォーマット
+    file="./latest.log",
+    filemode="w",
+    encoding="UTF-8",
+)
+log_main = logging.getLogger("main")
+log_img = logging.getLogger("img_get")
+log_notify = logging.getLogger("notifier")
+
 ws_reconnect_count = 0
 
 # ./config.jsonが存在するかどうかの確認
@@ -29,56 +42,85 @@ if os.path.exists("config.json"):
     config = json.load(
         open(file="config.json", mode="r", encoding="UTF-8")
     )  # 存在する場合openして中身を変数に格納
+    match config["log_level"]:
+        case "DEBUG":
+            logging.basicConfig(level=logging.DEBUG)
+        case "INFO":
+            logging.basicConfig(level=logging.INFO)
+        case "WARNING":
+            logging.basicConfig(level=logging.WARNING)
+        case "ERROR":
+            logging.basicConfig(level=logging.ERROR)
+        case "CRITICAL":
+            logging.basicConfig(level=logging.CRITICAL)
+    log_main.info("Config loaded")
 else:
     config = {}  # 存在しない場合インスタンスドメイン+トークンを聞きconfig.jsonを新規作成&保存
     config["host"] = input("ドメインを入力してください(例:example.com)-> https:// ")
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
     config["request_timeout"] = 10
     config["ws_reconnect_limit"] = 10
+    config["log_level"] = "WARNING"
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
+    log_main.info("Config file create&saved")
 ws_url = f'wss://{config["host"]}/streaming?i={config["i"]}'
 
 # 画像保存用の.dataフォルダが存在しない場合作成するように
 if not os.path.exists(".data"):
     os.mkdir(".data")
+    log_main.info("Create './.data' directory")
 
 # /./data/hash.jsonが存在するかどうかの確認
 if not os.path.exists(".data/hash.json"):
     open(file=".data/hash.json", mode="x", encoding="UTF-8").write("{}")
+    log_main.info("Create './.data/hash.json' file")
 
 
 # 生存確認
+log_main.info("Connection check")
 try:
     resp_code = requests.request(
         "GET", f'https://{config["host"]}', timeout=config["timeout"]
     ).status_code
+    log_main.info("Connection check success")
 except requests.exceptions.ConnectionError:
     print("サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください")
+    log_main.critical("Cannot connect to server!\nlease check domain.")
     exit()
 match resp_code:
     case 404:
         print(
             "API接続ができませんでした\n - 利用しているインスタンスが正常に稼働しているか\n - 入力したドメインが正しいかどうか\nを確認してください"
         )
+        log_main.critical("Unable to connect to API!\nPlease check domain and token.")
         exit()
     case 410 | 500 | 502 | 503:
         print(
             "サーバーが正常に応答しませんでした\n利用しているインスタンスが正常に稼働しているかを確認してください\nStatusCode:",
             resp_code,
         )
+        log_main.critical(
+            "Server is not responding normally!\nPlease check instance is running.\nStatusCode:",
+            resp_code,
+        )
         exit()
     case 429:
         print("レートリミットに達しました\nしばらくしてから再実行してください")
+        log_main.critical("Rate limit reached!\nPlease try again later.")
         exit()
 
+log_main.info("Misskey API connection check")
 try:
     mk = Misskey(config["host"], i=config["i"])
+    log_main.info("Misskey API connection check success")
 except requests.exceptions.ConnectionError:
     print("ドメインが違います\nconfig.jsonを削除/編集してもう一度入力しなおしてください")
+    log_main.critical("Domain is wrong!\nPlease check domain.")
     exit()
 except mk_exceptions.MisskeyAuthorizeFailedException:
     print("APIキーが違います\nconfig.jsonを削除/編集して入力しなおしてください")
+    log_main.critical("API key is wrong!\nPlease check API key.")
     exit()
 me = mk.i()
 
@@ -174,6 +216,7 @@ class main:
             try:
                 async with websockets.connect(ws_url) as ws:  # websocket接続
                     print("ws connect")
+                    log_main.info("Websocket connected")
                     await ws.send(
                         json.dumps(
                             {"type": "connect", "body": {"channel": "main", "id": "1"}}
@@ -335,15 +378,20 @@ class main:
                         img=app_icon,
                     )
                     return
-                print("websocket disconnected. reconecting...")
+                log_main.warning(
+                    "Websocket disconnected. reconecting...\ntrials count: ",
+                    ws_reconnect_count,
+                )
                 await main.notify_def(
                     title=app_name, content="サーバーから切断されました\n5秒後に再接続します...", img=app_icon
                 )
+
                 await asyncio.sleep(5)
                 ws_reconnect_count += 1
 
     def stopper(self):
         """アプリ終了時に呼び出す関数"""
+        log_main.info("stopper called")
         main.websocket_task.cancel()
         icon.stop()
 
@@ -353,13 +401,17 @@ class main:
         引数:
             icon:
         """
+
         self.websocket_task = asyncio.create_task(main.websocket_connect())
+        log_main.info("Start websocket task")
         self.icon_task = asyncio.create_task(asyncio.to_thread(icon.run))
+        log_main.info("Start icon task")
 
         try:
             await self.websocket_task
             await self.icon_task
         except asyncio.CancelledError:
+            log_main.info("task cancelled")
             print("task cancelled")
 
 
@@ -393,4 +445,5 @@ print("client_startup...")
 # icon_thread = threading.Thread(target=icon.run).start()
 print("icon starting...")
 
+log_main.info("Start main task...")
 asyncio.run(main.runner(icon))
