@@ -4,3 +4,4 @@ requests
 pystray
 misskey.py
 websockets
+pillow
