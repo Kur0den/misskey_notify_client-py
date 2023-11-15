@@ -27,7 +27,7 @@ app_icon = "icon/icon.png"
 logging.basicConfig(
     format="%(asctime)s %(name)s - %(levelname)s: %(message)s",  # 出力のフォーマット
     datefmt="[%Y-%m-%dT%H:%M:%S%z]",  # 時間(asctime)のフォーマット
-    file="./latest.log",
+    filename="./latest.log",
     filemode="w",
     encoding="UTF-8",
 )
