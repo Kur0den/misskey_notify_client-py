@@ -1,5 +1,6 @@
 import asyncio
 import json
+from math import log
 import os
 import re
 from glob import glob
@@ -23,38 +24,40 @@ app_icon = "icon/icon.png"
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
-# logの設定
-logging.basicConfig(
-    format="%(asctime)s %(name)s - %(levelname)s: %(message)s",  # 出力のフォーマット
-    datefmt="[%Y-%m-%dT%H:%M:%S%z]",  # 時間(asctime)のフォーマット
-    filename="./latest.log",
-    filemode="w",
-    encoding="UTF-8",
-)
-log_main = logging.getLogger("main")
-log_img = logging.getLogger("img_get")
-log_notify = logging.getLogger("notifier")
 
 ws_reconnect_count = 0
 
 # ./config.jsonが存在するかどうかの確認
 if os.path.exists("config.json"):
-    config = json.load(
-        open(file="config.json", mode="r", encoding="UTF-8")
-    )  # 存在する場合openして中身を変数に格納
+    config = json.load(open(file="config.json", mode="r", encoding="UTF-8"))
+    # 存在する場合openして中身を変数に格納しつつログの設定
     match config["log_level"]:
         case "DEBUG":
-            logging.basicConfig(level=logging.DEBUG)
+            log_level = logging.DEBUG
         case "INFO":
-            logging.basicConfig(level=logging.INFO)
+            log_level = logging.INFO
         case "WARNING":
-            logging.basicConfig(level=logging.WARNING)
+            log_level = logging.WARNING
         case "ERROR":
-            logging.basicConfig(level=logging.ERROR)
+            log_level = logging.ERROR
         case "CRITICAL":
-            logging.basicConfig(level=logging.CRITICAL)
+            log_level = logging.CRITICAL
+        case _:
+            log_level = logging.WARNING
+    logging.basicConfig(
+        format="%(asctime)s %(name)s - %(levelname)s: %(message)s",  # 出力のフォーマット
+        datefmt="[%Y-%m-%dT%H:%M:%S%z]",  # 時間(asctime)のフォーマット
+        filename="./latest.log",
+        filemode="w",
+        encoding="UTF-8",
+        level=log_level,
+    )
+    log_main = logging.getLogger("main")
+    log_img = logging.getLogger("img_get")
+    log_notify = logging.getLogger("notifier")
     log_main.info("Config loaded")
 else:
+    # config.json作成とともにログの設定
     config = {}  # 存在しない場合インスタンスドメイン+トークンを聞きconfig.jsonを新規作成&保存
     config["host"] = input("ドメインを入力してください(例:example.com)-> https:// ")
     config["i"] = input('"通知を見る"の権限を有効にしたAPIトークンを入力してください->')
@@ -63,6 +66,17 @@ else:
     config["log_level"] = "WARNING"
     print("初期設定が完了しました\n誤入力した/再設定をしたい場合は`config.json`を削除してください")
     json.dump(config, fp=open(file="config.json", mode="x", encoding="UTF-8"))
+    logging.basicConfig(
+        format="%(asctime)s %(name)s - %(levelname)s: %(message)s",  # 出力のフォーマット
+        datefmt="[%Y-%m-%dT%H:%M:%S%z]",  # 時間(asctime)のフォーマット
+        filename="./latest.log",
+        filemode="w",
+        encoding="UTF-8",
+        level=logging.WARNING,
+    )
+    log_main = logging.getLogger("main")
+    log_img = logging.getLogger("img_get")
+    log_notify = logging.getLogger("notifier")
     log_main.info("Config file create&saved")
 ws_url = f'wss://{config["host"]}/streaming?i={config["i"]}'
 
@@ -86,14 +100,14 @@ try:
     log_main.info("Connection check success")
 except requests.exceptions.ConnectionError:
     print("サーバーへの接続ができませんでした\n入力したドメインが正しいかどうかを確認してください")
-    log_main.critical("Cannot connect to server!\nlease check domain.")
+    log_main.critical("Cannot connect to server! Please check domain.")
     exit()
 match resp_code:
     case 404:
         print(
             "API接続ができませんでした\n - 利用しているインスタンスが正常に稼働しているか\n - 入力したドメインが正しいかどうか\nを確認してください"
         )
-        log_main.critical("Unable to connect to API!\nPlease check domain and token.")
+        log_main.critical("Unable to connect to API! Please check domain and token.")
         exit()
     case 410 | 500 | 502 | 503:
         print(
@@ -101,13 +115,13 @@ match resp_code:
             resp_code,
         )
         log_main.critical(
-            "Server is not responding normally!\nPlease check instance is running.\nStatusCode:",
+            "Server is not responding normally! Please check instance is running. StatusCode:",
             resp_code,
         )
         exit()
     case 429:
         print("レートリミットに達しました\nしばらくしてから再実行してください")
-        log_main.critical("Rate limit reached!\nPlease try again later.")
+        log_main.critical("Rate limit reached! Please try again later.")
         exit()
 
 log_main.info("Misskey API connection check")
@@ -116,13 +130,18 @@ try:
     log_main.info("Misskey API connection check success")
 except requests.exceptions.ConnectionError:
     print("ドメインが違います\nconfig.jsonを削除/編集してもう一度入力しなおしてください")
-    log_main.critical("Domain is wrong!\nPlease check domain.")
+    log_main.critical("Domain is wrong! Please check domain.")
     exit()
 except mk_exceptions.MisskeyAuthorizeFailedException:
     print("APIキーが違います\nconfig.jsonを削除/編集して入力しなおしてください")
-    log_main.critical("API key is wrong!\nPlease check API key.")
+    log_main.critical("API key is wrong! Please check API key.")
     exit()
-me = mk.i()
+try:
+    me = mk.i()
+except requests.exceptions.JSONDecodeError:
+    print("サーバー接続時にエラーが発生しました\nドメイン/APIキーが正しいかどうか確認してください")
+    log_main.critical("Cannot connect to server! Please check domain/API key.")
+    exit()
 
 
 class main:
@@ -206,7 +225,7 @@ class main:
             None
         """
 
-        print("notify send")
+        log_notify.info("notify_def called")
         notifier.title = title
         notifier.message = content
         notifier.icon = img
@@ -246,6 +265,7 @@ class main:
                                     )
                                 match recv_body["type"]:  # 通知の種類によって動作を分ける
                                     case "reaction":  # リアクション
+                                        log_main.debug("Type: reaction")
                                         if (
                                             re.match(r".+@", recv_body["reaction"])
                                             is not None
@@ -264,6 +284,7 @@ class main:
                                         )
 
                                     case "reply":  # リプライ
+                                        log_main.debug("Type: reply")
                                         msg = re.sub(
                                             pattern=r"(@.+@.+\..+\s)",
                                             repl="",
@@ -282,6 +303,7 @@ class main:
                                         )
 
                                     case "mention":  # メンション
+                                        log_main.debug("Type: mention")
                                         await main.notify_def(
                                             title=f"{name}がメンションしました",
                                             content=re.sub(
@@ -301,6 +323,7 @@ class main:
                                         )
 
                                     case "renote":  # リノート
+                                        log_main.debug("Type: renote")
                                         await main.notify_def(
                                             title=f"{name}がリノートしました",
                                             content=recv_body["note"]["renote"]["text"],
@@ -308,6 +331,7 @@ class main:
                                         )
 
                                     case "quote":  # 引用リノート
+                                        log_main.debug("Type: quote")
                                         await main.notify_def(
                                             title=f"{name}が引用リノートしました",
                                             content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
@@ -315,6 +339,7 @@ class main:
                                         )
 
                                     case "follow":  # フォロー
+                                        log_main.debug("Type: follow")
                                         await main.notify_def(
                                             title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローされました",
@@ -322,6 +347,7 @@ class main:
                                         )
 
                                     case "followRequestAccepted":  # フォロー承認
+                                        log_main.debug("Type: followRequestAccepted")
                                         await main.notify_def(
                                             title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローが承認されました",
@@ -329,6 +355,7 @@ class main:
                                         )
 
                                     case "receiveFollowRequest":  # フォローリクエスト
+                                        log_main.debug("Type: receiveFollowRequest")
                                         await main.notify_def(
                                             title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローがリクエストされました",
@@ -336,6 +363,7 @@ class main:
                                         )
 
                                     case "pollEnded":  # 投票終了
+                                        log_main.debug("Type: pollEnded")
                                         votes = 0
                                         most_vote = None
                                         voted = None
@@ -368,6 +396,7 @@ class main:
                                         )
 
                                     case "app":  # アプリ通知
+                                        log_main.debug("Type: app")
                                         await main.notify_def(
                                             title=recv_body["header"],
                                             content=recv_body["body"],
@@ -380,6 +409,9 @@ class main:
             except websockets.exceptions.ConnectionClosedError:
                 if ws_reconnect_count == config["ws_reconnect_limit"]:
                     print("websocket disconnected. reconnect limit reached.")
+                    log_main.critical(
+                        "websocket disconnected. reconnect limit reached."
+                    )
                     await main.notify_def(
                         title=app_name,
                         content="再接続の回数が既定の回数を超えたため中断して終了します",
@@ -448,6 +480,14 @@ icon = pystray.Icon(
     ),
 )
 # TODO: どの通知受け取るか設定できるように
+
+
+log_main.debug("test")
+log_main.info("test")
+log_main.warning("test")
+log_main.error("test")
+log_main.critical("test")
+
 
 print("client_startup...")
 # icon_thread = threading.Thread(target=icon.run).start()
