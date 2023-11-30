@@ -217,7 +217,7 @@ class main:
         icon: str,
         icon_square: bool = False,
         open_url: str | None = None,
-    ) -> None:
+    ):
         """
         通知を送信するための関数
 
@@ -229,7 +229,7 @@ class main:
             open_url (str | None, optional): 通知をクリックしたときに開くURL
 
         Returns:
-            None
+            通知の結果
         """
 
         log_notify.info("notify_def called")
@@ -245,6 +245,7 @@ class main:
             on_click=open_url if open_url is not None else lambda args: None,
         )
         log_notify.debug(result)
+        return result
 
     @staticmethod
     async def websocket_connect():
@@ -296,6 +297,7 @@ class main:
                                             title=title,
                                             content=recv_body["note"]["text"],
                                             icon=main.get_image(recv_body["user"]),
+                                            open_url=f"https://{config['host']}/notes/{recv_body['note']['id']}",
                                         )
 
                                     case "reply":  # リプライ
@@ -315,6 +317,7 @@ class main:
                                             title=f"{name}が返信しました",
                                             content=f'{msg}\n------------\n{recv_body["note"]["reply"]["text"]}',
                                             icon=main.get_image(recv_body["user"]),
+                                            open_url=f"https://{config['host']}/notes/{recv_body['note']['id']}",
                                         )
 
                                     case "mention":  # メンション
