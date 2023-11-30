@@ -237,7 +237,13 @@ class main:
             icon = {"src": f"{str(Path(icon).resolve())}", "placement": "appLogoOverride"}  # type: ignore
         else:
             icon = str(Path(icon).resolve())  # type: ignore
-        result = await toast(app_id=app_name, title=title, body=content, icon=icon)
+        result = await toast(
+            app_id=app_name,
+            title=title,
+            body=content,
+            icon=icon,
+            on_click=open_url if open_url is not None else lambda args: None,
+        )
         log_notify.debug(result)
 
     @staticmethod
