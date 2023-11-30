@@ -4,6 +4,7 @@ import os
 import re
 from glob import glob
 from hashlib import sha256
+from pathlib import Path
 from io import BytesIO
 from sys import exit
 import logging
@@ -13,13 +14,12 @@ import requests
 import websockets
 from misskey import Misskey
 from misskey import exceptions as mk_exceptions
-from notifypy import Notify
+from win11toast import toast_async as toast
 from PIL import Image
 
-notifier = Notify()
 
 app_name = "Misskey-Notify-Client"
-app_icon = "icon/icon.png"
+app_icon = "./icon/icon.png"
 
 # ignore_events = ['unreadNotification', 'readAllNotifications', 'unreadMention', 'readAllUnreadMentions', 'unreadSpecifiedNote', 'readAllUnreadSpecifiedNotes', 'unreadMessagingMessage', 'readAllMessagingMessages']
 
@@ -202,16 +202,22 @@ class main:
                 log_img.info("Hash saved")
             else:
                 log_img.info("StatusCode error: No image downloaded")
-                img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
+                img_path = "./icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
         except requests.exceptions.ConnectionError:
             log_img.info("Connection error: No image downloaded")
-            img_path = "icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
+            img_path = "./icon/icon.png"  # 返り値用の変数にアプリアイコンのパスを格納
 
         log_img.info("return")
         return img_path  # みんな大好きreturn
 
     @staticmethod
-    async def notify_def(title: str, content: str, img: str) -> None:
+    async def notify_def(
+        title: str,
+        content: str,
+        icon: str,
+        icon_square: bool = False,
+        open_url: str | None = None,
+    ) -> None:
         """
         通知を送信するための関数
 
@@ -219,16 +225,20 @@ class main:
             title (str): 通知のタイトル
             content (str): 通知の内容
             img (str): 通知に表示する画像のパス
+            img_square (bool, optional): 通知に表示する画像を正方形にするかどうか
+            open_url (str | None, optional): 通知をクリックしたときに開くURL
 
         Returns:
             None
         """
 
         log_notify.info("notify_def called")
-        notifier.title = title
-        notifier.message = content
-        notifier.icon = img
-        notifier.send()
+        if icon_square:
+            icon = {"src": f"{str(Path(icon).resolve())}", "placement": "appLogoOverride"}  # type: ignore
+        else:
+            icon = str(Path(icon).resolve())  # type: ignore
+        result = await toast(app_id=app_name, title=title, body=content, icon=icon)
+        log_notify.debug(result)
 
     @staticmethod
     async def websocket_connect():
@@ -279,7 +289,7 @@ class main:
                                         await main.notify_def(
                                             title=title,
                                             content=recv_body["note"]["text"],
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "reply":  # リプライ
@@ -298,7 +308,7 @@ class main:
                                         await main.notify_def(
                                             title=f"{name}が返信しました",
                                             content=f'{msg}\n------------\n{recv_body["note"]["reply"]["text"]}',
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "mention":  # メンション
@@ -318,7 +328,7 @@ class main:
                                                     )
                                                 ),
                                             ),
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "renote":  # リノート
@@ -326,7 +336,7 @@ class main:
                                         await main.notify_def(
                                             title=f"{name}がリノートしました",
                                             content=recv_body["note"]["renote"]["text"],
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "quote":  # 引用リノート
@@ -334,7 +344,7 @@ class main:
                                         await main.notify_def(
                                             title=f"{name}が引用リノートしました",
                                             content=f'{recv_body["note"]["text"]}\n-------------\n{recv_body["note"]["renote"]["text"]}',
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "follow":  # フォロー
@@ -342,7 +352,7 @@ class main:
                                         await main.notify_def(
                                             title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローされました",
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "followRequestAccepted":  # フォロー承認
@@ -350,7 +360,7 @@ class main:
                                         await main.notify_def(
                                             title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローが承認されました",
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "receiveFollowRequest":  # フォローリクエスト
@@ -358,7 +368,7 @@ class main:
                                         await main.notify_def(
                                             title=f'{name}@{recv_body["user"]["host"]}',
                                             content="ホョローがリクエストされました",
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "pollEnded":  # 投票終了
@@ -391,7 +401,7 @@ class main:
                                         await main.notify_def(
                                             title=title,
                                             content=message,
-                                            img=main.get_image(recv_body["user"]),
+                                            icon=main.get_image(recv_body["user"]),
                                         )
 
                                     case "app":  # アプリ通知
@@ -399,7 +409,7 @@ class main:
                                         await main.notify_def(
                                             title=recv_body["header"],
                                             content=recv_body["body"],
-                                            img=main.get_image(
+                                            icon=main.get_image(
                                                 recv_body["icon"], recv_body["header"]
                                             ),
                                         )
@@ -414,7 +424,7 @@ class main:
                     await main.notify_def(
                         title=app_name,
                         content="再接続の回数が既定の回数を超えたため中断して終了します",
-                        img=app_icon,
+                        icon=app_icon,
                     )
                     return
                 log_main.warning(
@@ -422,7 +432,9 @@ class main:
                     ws_reconnect_count,
                 )
                 await main.notify_def(
-                    title=app_name, content="サーバーから切断されました\n5秒後に再接続します...", img=app_icon
+                    title=app_name,
+                    content="サーバーから切断されました\n5秒後に再接続します...",
+                    icon=app_icon,
                 )
 
                 await asyncio.sleep(5)
@@ -467,7 +479,7 @@ def notify_read():
         message = "通知をすべて既読にしました"
     else:
         message = "通知の既読化に失敗しました"
-    asyncio.run(main.notify_def(title=app_name, content=message, img=app_icon))
+    asyncio.run(main.notify_def(title=app_name, content=message, icon=app_icon))
 
 
 icon = pystray.Icon(
